@@ -30,6 +30,7 @@ export * from './document.js';
 export * from './results.js';
 export * from './diagnostics.js';
 export * from './recommendations.js';
+export * from './preview.js';
 export * from './calculation.js';
 export * from './comparison.js';
 export * from './commands.js';

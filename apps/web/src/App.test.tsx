@@ -149,3 +149,21 @@ describe('R3: constraints (v0.4 §37)', () => {
     expect(screen.getByText('Pass')).toBeTruthy();
   });
 });
+
+describe('#4: recommendation preview (v0.8 §28)', () => {
+  it('previews a recommendation showing a before→after benefit', () => {
+    renderApp();
+    // Force a framing failure so a recommendation with proposed changes appears.
+    const focal = screen.getByLabelText(/Focal length/) as HTMLInputElement;
+    fireEvent.change(focal, { target: { value: '2000' } });
+    fireEvent.blur(focal);
+
+    // Preview the first recommendation (Overview lists them).
+    const previewButtons = screen.getAllByRole('button', { name: 'Preview' });
+    expect(previewButtons.length).toBeGreaterThan(0);
+    fireEvent.click(previewButtons[0]!);
+
+    // The preview block shows a before→after arrow.
+    expect(screen.getByText(/→/)).toBeTruthy();
+  });
+});

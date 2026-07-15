@@ -661,3 +661,45 @@ button:disabled {
   color: var(--muted);
   font-size: 11px;
 }
+
+/* Recommendation preview */
+.recs__actions {
+  display: flex;
+  gap: 6px;
+}
+.recs__preview-btn {
+  padding: 3px 12px;
+  font-size: 13px;
+}
+.recs__preview {
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.recs__preview-status {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.recs__preview--valid {
+  border-left: 3px solid var(--good);
+}
+.recs__preview--worse_overall,
+.recs__preview--constraint_conflict {
+  border-left: 3px solid var(--bad);
+}
+.recs__preview-benefit {
+  color: var(--good);
+}
+.recs__preview-regression {
+  color: var(--bad);
+}
+.recs__preview-next {
+  color: var(--muted);
+  margin-top: 4px;
+}
