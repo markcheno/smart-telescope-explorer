@@ -15,3 +15,4 @@ export * from './groups-r2.js';
 export * from './groups-r3.js';
 export * from './recommendations.js';
 export * from './coordinator.js';
+export * from './comparison.js';

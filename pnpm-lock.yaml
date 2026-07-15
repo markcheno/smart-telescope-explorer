@@ -112,6 +112,12 @@ importers:
         specifier: workspace:*
         version: link:../units
 
+  packages/catalogs:
+    dependencies:
+      '@ste/schema':
+        specifier: workspace:*
+        version: link:../schema
+
   packages/engine-core:
     dependencies:
       '@ste/astronomy':
@@ -153,6 +159,10 @@ importers:
       '@ste/validation':
         specifier: workspace:*
         version: link:../validation
+    devDependencies:
+      '@ste/catalogs':
+        specifier: workspace:*
+        version: link:../catalogs
 
   packages/exposure: {}
 

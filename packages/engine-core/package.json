@@ -22,5 +22,8 @@
     "@ste/tracking": "workspace:*",
     "@ste/units": "workspace:*",
     "@ste/validation": "workspace:*"
+  },
+  "devDependencies": {
+    "@ste/catalogs": "workspace:*"
   }
 }
