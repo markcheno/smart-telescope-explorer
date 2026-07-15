@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { calculate } from '@ste/engine-core';
 import type { ResultValue } from '@ste/schema';
-import { F01_DOCUMENT, FIXTURES, fixtureRequest, type ExpectedValue } from './index.js';
+import {
+  F01_DOCUMENT,
+  F03_DOCUMENT,
+  F04_DOCUMENT,
+  F05_DOCUMENT,
+  F06_DOCUMENT,
+  F07_DOCUMENT,
+  FIXTURES,
+  fixtureRequest,
+  type ExpectedValue,
+} from './index.js';
 
 function num(rv: ResultValue<number> | undefined): number {
   expect(rv).toBeDefined();
@@ -131,5 +141,77 @@ describe('no NaN and physical bounds', () => {
     const fov = num(g.field_of_view_x_deg);
     expect(fov).toBeGreaterThan(0);
     expect(fov).toBeLessThan(180);
+  });
+});
+
+// --- R2 fixtures F03–F07 (spec v0.7 §22; directional assertions) ---------
+
+describe('F03 tracking-limited (R2-032)', () => {
+  const res = calculate(fixtureRequest(F03_DOCUMENT, ['blur', 'tracking']));
+
+  it('tracking motion dominates and elongates the ellipse', () => {
+    const b = res.results.blur!;
+    expect(b.dominant_contribution.value).toBe('motion');
+    expect(b.elongation.value as number).toBeGreaterThan(1.1);
+  });
+
+  it('a shorter exposure reduces elongation (aperture alone would not)', () => {
+    const shorter = calculate(
+      fixtureRequest({ ...F03_DOCUMENT, capture: { exposure_s: 5 } }, ['blur']),
+    ).results.blur!;
+    expect(shorter.elongation.value as number).toBeLessThan(
+      res.results.blur!.elongation.value as number,
+    );
+  });
+});
+
+describe('F04 rotation-limited (R2-033)', () => {
+  it('center rotation is zero and an equatorial mount removes field rotation', () => {
+    const altaz = calculate(fixtureRequest(F04_DOCUMENT, ['field_rotation'])).results
+      .field_rotation!;
+    expect(altaz.center_motion_px.value).toBe(0);
+    const eq = calculate(
+      fixtureRequest({ ...F04_DOCUMENT, mount: { architecture: 'german_equatorial' } }, [
+        'field_rotation',
+      ]),
+    ).results.field_rotation!;
+    expect(eq.rotation_rate_deg_per_hr.value).toBe(0);
+    expect(altaz.corner_motion_px.value as number).toBeGreaterThanOrEqual(
+      eq.corner_motion_px.value as number,
+    );
+  });
+});
+
+describe('F05 overhead-limited (R2-034)', () => {
+  it('recommends a longer exposure than the 1 s starting point', () => {
+    const e = calculate(fixtureRequest(F05_DOCUMENT, ['exposure_sweep'])).results.exposure_sweep!;
+    expect(e.best_exposure_s.value as number).toBeGreaterThan(1);
+    // Low starting duty cycle: 1 s exposure with 2 s overhead -> 33%.
+    const oneSecond = e.candidates.find((c) => c.exposure_s === 1);
+    expect(oneSecond!.duty_cycle).toBeLessThan(0.4);
+  });
+});
+
+describe('F06 rejection-limited (R2-035)', () => {
+  it('acceptance falls as exposure lengthens and best is below the longest feasible', () => {
+    const e = calculate(fixtureRequest(F06_DOCUMENT, ['exposure_sweep'])).results.exposure_sweep!;
+    const short = e.candidates.find((c) => c.exposure_s <= 5);
+    const long = e.candidates[e.candidates.length - 1]!;
+    expect(short!.acceptance).toBeGreaterThanOrEqual(long.acceptance);
+    expect(e.best_exposure_s.value as number).toBeLessThanOrEqual(
+      e.longest_acceptable_s.value as number,
+    );
+  });
+});
+
+describe('F07 framing failure (R2-036)', () => {
+  it('the target does not fit and a shorter focal length is recommended', () => {
+    const res = calculate(fixtureRequest(F07_DOCUMENT, ['target_framing', 'recommendations']));
+    expect(res.results.target_framing!.fit_status.value).toBe('does_not_fit');
+    const rec = (res.recommendations ?? []).find(
+      (r) => r.rule_id === 'framing.target_does_not_fit',
+    );
+    expect(rec).toBeDefined();
+    expect(rec!.severity).toBe('critical');
   });
 });

@@ -202,3 +202,161 @@ export const FIXTURES = [
   { name: 'F01', document: F01_DOCUMENT, expected: F01_EXPECTED },
   { name: 'F02', document: F02_DOCUMENT, expected: F02_EXPECTED },
 ] as const;
+
+// --- R2 fixtures F03–F07 (spec v0.7 §22; assertions are directional) -----
+
+/** A compact R2 base design; overrides tailor it to each fixture. */
+function r2Base(id: string, name: string): DesignDocument {
+  return {
+    schema_version: '1.0.0',
+    calculation_engine_version: '1.0.0',
+    design_id: id,
+    revision: 1,
+    metadata: {
+      name,
+      design_type: 'custom',
+      locked: false,
+      created_at: '2026-07-14T00:00:00Z',
+      modified_at: '2026-07-14T00:00:00Z',
+    },
+    scenario: {
+      mode: 'direct_horizontal_static',
+      direct_horizontal: { altitude_deg: 60, azimuth_deg: 180 },
+      conditions: { seeing_fwhm_arcsec: 2.5 },
+    },
+    target: {
+      selection_type: 'custom',
+      custom_target: {
+        target_id: `${id}_target`,
+        name: 'Target',
+        coordinates: { right_ascension_deg: null, declination_deg: null, epoch: 'j2000' },
+        geometry: { shape: 'ellipse', width_arcmin: 20, height_arcmin: 15, position_angle_deg: 0 },
+        classification: { target_type: 'galaxy' },
+      },
+    },
+    optics: {
+      aperture_mm: 50,
+      native_focal_length_mm: 250,
+      reducer_multiplier: 1,
+      extender_multiplier: 1,
+      optical_blur: { representation: 'fwhm_arcsec', value: 2.0 },
+    },
+    camera: {
+      sensor: {
+        sensor_width_mm: 11.136,
+        sensor_height_mm: 6.264,
+        horizontal_pixels: 3840,
+        vertical_pixels: 2160,
+        pixel_pitch_x_um: 2.9,
+        pixel_pitch_y_um: 2.9,
+      },
+    },
+    filter: { filter_type: 'none' },
+    mount: { architecture: 'german_equatorial' },
+    tracking: { enabled: true },
+    capture: { exposure_s: 20 },
+    constraints: [],
+    extensions: {},
+  };
+}
+
+/** F03 — tracking-limited (15″ p-p periodic @ 60 s + 4″ jitter, 20 s). */
+export const F03_DOCUMENT: DesignDocument = (() => {
+  const d = r2Base('design_f03_tracking', 'F03 Tracking-limited');
+  d.tracking = {
+    enabled: true,
+    error_model: {
+      periodic_error: {
+        amplitude_arcsec: 15,
+        amplitude_statistic: 'peak_to_peak',
+        period_s: 60,
+        direction: 'right_ascension',
+      },
+      tracking_jitter: { value: 4, statistic: 'rms', direction: 'isotropic' },
+    },
+    quality_thresholds: { maximum_motion_pixels: 1 },
+  };
+  return d;
+})();
+
+/** F04 — rotation-limited (alt-az, near zenith, low tracking error, 30 s). */
+export const F04_DOCUMENT: DesignDocument = (() => {
+  const d = r2Base('design_f04_rotation', 'F04 Rotation-limited');
+  d.scenario = {
+    mode: 'ephemeris_session',
+    location: { latitude_deg: 41.5, longitude_deg: -87.5 },
+    session: {
+      start_time_utc: '2026-07-14T06:00:00Z',
+      duration_s: 3600,
+      sample_interval_s: 120,
+      minimum_altitude_deg: 0,
+    },
+    conditions: { seeing_fwhm_arcsec: 2.0 },
+  };
+  d.target.custom_target!.coordinates = {
+    right_ascension_deg: 90,
+    declination_deg: 41.5,
+    epoch: 'j2000',
+  };
+  d.mount = { architecture: 'alt_azimuth' };
+  d.capture.exposure_s = 30;
+  return d;
+})();
+
+/** F05 — readout-overhead limited (1 s exposure, 2 s overhead, 60 min). */
+export const F05_DOCUMENT: DesignDocument = (() => {
+  const d = r2Base('design_f05_overhead', 'F05 Overhead-limited');
+  d.scenario.session = { start_time_utc: null, duration_s: 3600 };
+  d.camera.readout = { readout_time_s: 2, transfer_time_s: 0 };
+  d.tracking = { enabled: true, error_model: {} };
+  d.capture = {
+    exposure_s: 1,
+    exposure_sweep: { enabled: true, minimum_exposure_s: 1, maximum_exposure_s: 60 },
+  };
+  return d;
+})();
+
+/** F06 — rejection-limited (30 s, high periodic sensitivity, low overhead). */
+export const F06_DOCUMENT: DesignDocument = (() => {
+  const d = r2Base('design_f06_rejection', 'F06 Rejection-limited');
+  d.camera.readout = { readout_time_s: 0.1, transfer_time_s: 0 };
+  d.tracking = {
+    enabled: true,
+    error_model: {
+      periodic_error: {
+        amplitude_arcsec: 12,
+        amplitude_statistic: 'peak_to_peak',
+        period_s: 40,
+        direction: 'right_ascension',
+      },
+    },
+    quality_thresholds: { maximum_motion_pixels: 1 },
+  };
+  d.capture = {
+    exposure_s: 30,
+    exposure_sweep: { enabled: true, minimum_exposure_s: 2, maximum_exposure_s: 60 },
+  };
+  return d;
+})();
+
+/** F07 — large-target framing failure (small sensor, long focal length). */
+export const F07_DOCUMENT: DesignDocument = (() => {
+  const d = r2Base('design_f07_framing', 'F07 Framing failure');
+  d.optics.native_focal_length_mm = 2000;
+  d.optics.image_circle_diameter_mm = 22;
+  d.target.custom_target!.geometry = {
+    shape: 'ellipse',
+    width_arcmin: 180,
+    height_arcmin: 120,
+    position_angle_deg: 0,
+  };
+  return d;
+})();
+
+export const R2_FIXTURES = [
+  F03_DOCUMENT,
+  F04_DOCUMENT,
+  F05_DOCUMENT,
+  F06_DOCUMENT,
+  F07_DOCUMENT,
+] as const;
