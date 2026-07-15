@@ -6,5 +6,6 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@ste/schema": "workspace:*" }
+  "dependencies": { "@ste/schema": "workspace:*" },
+  "devDependencies": { "@ste/targets": "workspace:*", "@ste/units": "workspace:*" }
 }

@@ -5,57 +5,11 @@
  * resolution, and pixel pitch. Derived image scale and FOV are read from results.
  */
 
-import type { SensorInput } from '@ste/schema';
+import { SENSOR_PRESETS, matchSensorPreset } from '@ste/catalogs';
 import { InputSection } from '../components/InputSection.js';
 import { QuantityInput } from '../components/QuantityInput.js';
 import { formatResult } from '../components/format.js';
 import { useDesign } from '../state/store.js';
-
-interface SensorPreset {
-  id: string;
-  label: string;
-  sensor: SensorInput;
-}
-
-/** R1 seed sensor presets (v0.9 §24 R1-012). */
-const SENSOR_PRESETS: SensorPreset[] = [
-  {
-    id: 'imx585',
-    label: 'Sony IMX585 (3840×2160, 2.9 µm)',
-    sensor: sensor(11.136, 6.264, 3840, 2160, 2.9),
-  },
-  {
-    id: 'imx678',
-    label: 'Sony IMX678 (3840×2160, 2.0 µm)',
-    sensor: sensor(7.68, 4.32, 3840, 2160, 2.0),
-  },
-  {
-    id: 'imx662',
-    label: 'Sony IMX662 (1920×1080, 2.9 µm)',
-    sensor: sensor(5.568, 3.132, 1920, 1080, 2.9),
-  },
-];
-
-function sensor(w: number, h: number, px: number, py: number, pitch: number): SensorInput {
-  return {
-    sensor_width_mm: w,
-    sensor_height_mm: h,
-    horizontal_pixels: px,
-    vertical_pixels: py,
-    pixel_pitch_x_um: pitch,
-    pixel_pitch_y_um: pitch,
-    color_mode: 'color',
-  };
-}
-
-function matchPreset(s: SensorInput): string {
-  const found = SENSOR_PRESETS.find(
-    (p) =>
-      p.sensor.horizontal_pixels === s.horizontal_pixels &&
-      p.sensor.pixel_pitch_x_um === s.pixel_pitch_x_um,
-  );
-  return found?.id ?? 'custom';
-}
 
 export function CameraSection(): JSX.Element {
   const { design, edit, results } = useDesign();
@@ -73,7 +27,7 @@ export function CameraSection(): JSX.Element {
         <span className="quantity__label">Sensor preset</span>
         <select
           className="quantity__select"
-          value={matchPreset(s)}
+          value={matchSensorPreset(s)}
           onChange={(e) => {
             const preset = SENSOR_PRESETS.find((p) => p.id === e.target.value);
             if (preset != null)

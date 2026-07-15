@@ -8,6 +8,7 @@
 
 import type { OpticalQualityPreset } from '@ste/schema';
 import { OPTICAL_QUALITY_PRESETS } from '@ste/schema';
+import { OPTIC_PRESETS, matchOpticPreset } from '@ste/catalogs';
 import { InputSection } from '../components/InputSection.js';
 import { QuantityInput } from '../components/QuantityInput.js';
 import { formatResult, prettifyEnum } from '../components/format.js';
@@ -28,6 +29,28 @@ export function OpticsSection(): JSX.Element {
 
   return (
     <InputSection title="Optics" status={status} defaultOpen>
+      <label className="quantity">
+        <span className="quantity__label">Objective preset</span>
+        <select
+          className="quantity__select"
+          value={matchOpticPreset(optics.aperture_mm, optics.native_focal_length_mm)}
+          onChange={(e) => {
+            const p = OPTIC_PRESETS.find((o) => o.id === e.target.value);
+            if (p != null)
+              edit((d) => {
+                d.optics.aperture_mm = p.aperture_mm;
+                d.optics.native_focal_length_mm = p.focal_length_mm;
+              });
+          }}
+        >
+          {OPTIC_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+          <option value="custom">Custom</option>
+        </select>
+      </label>
       <QuantityInput
         label="Aperture"
         value={optics.aperture_mm}

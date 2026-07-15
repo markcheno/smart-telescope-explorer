@@ -11,6 +11,7 @@ import { AppBar } from './components/AppBar.js';
 import { ResultsRail } from './components/ResultsRail.js';
 import { ComparisonTray } from './components/ComparisonTray.js';
 import { ScenarioSection } from './features/ScenarioSection.js';
+import { TargetSection } from './features/TargetSection.js';
 import { OpticsSection } from './features/OpticsSection.js';
 import { CameraSection } from './features/CameraSection.js';
 import { MountSection } from './features/MountSection.js';
@@ -56,6 +57,7 @@ export function App(): JSX.Element {
         <nav className="inputs" aria-label="Inputs">
           <div className="inputs__title">Inputs</div>
           <ScenarioSection />
+          <TargetSection />
           <OpticsSection />
           <CameraSection />
           <MountSection />

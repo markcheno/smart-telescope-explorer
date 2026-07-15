@@ -14,6 +14,9 @@
 
 import type { DesignDocument } from '@ste/schema';
 
+export * from './targets.js';
+export * from './presets.js';
+
 /** A neutral scenario/target used only until the comparison normalises them. */
 function referenceBase(
   id: string,

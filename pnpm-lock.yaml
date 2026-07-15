@@ -120,6 +120,13 @@ importers:
       '@ste/schema':
         specifier: workspace:*
         version: link:../schema
+    devDependencies:
+      '@ste/targets':
+        specifier: workspace:*
+        version: link:../targets
+      '@ste/units':
+        specifier: workspace:*
+        version: link:../units
 
   packages/engine-core:
     dependencies:
