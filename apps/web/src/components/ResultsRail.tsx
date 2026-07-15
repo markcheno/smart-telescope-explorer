@@ -41,6 +41,7 @@ export function ResultsRail(): JSX.Element {
   const sampling = results.results.sampling;
   const blur = results.results.blur;
   const exposure = results.results.exposure_sweep;
+  const session = results.results.session;
   const topRec = results.recommendations?.[0];
   const errorCount = results.issues.filter(
     (i) => i.severity === 'error' || i.severity === 'fatal',
@@ -74,6 +75,11 @@ export function ResultsRail(): JSX.Element {
         hint={`elongation ${formatResult(blur?.elongation)}`}
       />
       <ResultCard title="Recommended exposure" rv={exposure?.best_exposure_s} />
+      <ResultCard
+        title="Effective integration"
+        rv={session?.effective_integration_s}
+        hint={`${formatResult(session?.frames_accepted)} frames`}
+      />
       {topRec != null && (
         <div className="card">
           <div className="card__title">Top recommendation</div>

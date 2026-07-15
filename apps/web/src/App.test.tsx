@@ -94,9 +94,32 @@ describe('R2 gate: tracking, blur, exposure, apply recommendation (v0.9 §28, R2
     expect(Number(focalAfter.value)).toBeLessThan(2000);
   });
 
-  it('shows the exposure sweep table with a preliminary label', () => {
+  it('shows the exposure sweep candidate table', () => {
     renderApp();
     fireEvent.click(screen.getByRole('tab', { name: 'Exposure' }));
-    expect(screen.getByText('preliminary')).toBeTruthy();
+    expect(screen.getAllByText(/Recommended/).length).toBeGreaterThan(0);
+    expect(screen.getByText('Relative')).toBeTruthy();
+  });
+});
+
+describe('R3: sensitivity, session yield, and a non-preliminary exposure metric', () => {
+  it('shows a Sensitivity tab with relative throughput and session yield', () => {
+    renderApp();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sensitivity' }));
+    expect(screen.getByText(/Point-source throughput/)).toBeTruthy();
+    expect(screen.getAllByText(/Effective integration/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Relative stacked-SNR score/)).toBeTruthy();
+  });
+
+  it('no longer labels the exposure view as preliminary', () => {
+    renderApp();
+    fireEvent.click(screen.getByRole('tab', { name: 'Exposure' }));
+    expect(screen.queryByText('preliminary')).toBeNull();
+  });
+
+  it('surfaces effective integration in the overview', () => {
+    renderApp();
+    // Overview is the default tab; effective integration is a metric tile + rail card.
+    expect(screen.getAllByText('Effective integration').length).toBeGreaterThan(0);
   });
 });

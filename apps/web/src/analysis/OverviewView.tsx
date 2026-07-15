@@ -16,6 +16,8 @@ export function OverviewView(): JSX.Element {
   const sampling = results.results.sampling;
   const blur = results.results.blur;
   const exposure = results.results.exposure_sweep;
+  const sensitivity = results.results.sensitivity;
+  const session = results.results.session;
   const topIssue = results.issues.find((i) => i.severity === 'error' || i.severity === 'warning');
 
   return (
@@ -32,7 +34,14 @@ export function OverviewView(): JSX.Element {
         <Metric label="Final blur (major)" value={formatResult(blur?.major_fwhm_arcsec)} />
         <Metric label="Elongation" value={formatResult(blur?.elongation)} />
         <Metric label="Recommended exposure" value={formatResult(exposure?.best_exposure_s)} />
-        <Metric label="Blur quality" value={formatResult(blur?.quality)} />
+        <Metric
+          label="Effective integration"
+          value={formatResult(session?.effective_integration_s)}
+        />
+        <Metric
+          label="Relative SNR score"
+          value={formatResult(sensitivity?.relative_stack_score)}
+        />
       </div>
       <div className="overview__limitation">
         <span className="overview__limitation-label">Primary limitation</span>

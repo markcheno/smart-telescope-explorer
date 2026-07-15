@@ -19,9 +19,7 @@ export function ExposureView(): JSX.Element {
 
   return (
     <div className="view">
-      <h2 className="view__title">
-        Exposure <span className="view__tag">preliminary</span>
-      </h2>
+      <h2 className="view__title">Exposure</h2>
       {e == null || e.candidates.length === 0 ? (
         <p className="view__empty">Configure tracking and a session to sweep exposures.</p>
       ) : (
@@ -79,8 +77,8 @@ export function ExposureView(): JSX.Element {
             <MetricRow label="Hard limit" rv={e.hard_limit_s} />
           </div>
           <p className="view__summary">
-            Shorter: overhead matters. Longer: rejection rises. Fixed-session performance is
-            preliminary until the stack/noise model.
+            Shorter: read noise and overhead dominate. Longer: rejection rises. The relative score
+            is the fixed-session stacked SNR.
           </p>
         </>
       )}
