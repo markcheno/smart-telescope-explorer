@@ -1,0 +1,4 @@
+pnpm-lock.yaml
+dist/
+# Authored specification documents — keep verbatim (checksummed in MANIFEST.sha256).
+docs/specifications/
