@@ -94,3 +94,58 @@ export const addArcsec = (a: Arcseconds, b: Arcseconds): Arcseconds =>
 /** Root-sum-square of same-unit quantities (e.g. combining FWHM contributions). */
 export const rssArcsec = (...values: Arcseconds[]): Arcseconds =>
   arcsec(Math.sqrt(values.reduce((acc, v) => acc + (v as number) * (v as number), 0)));
+
+// --- angular rates (R2) ---------------------------------------------------
+
+export type ArcsecPerSecond = Brand<number, 'ArcsecPerSecond'>;
+export type ArcsecPerMinute = Brand<number, 'ArcsecPerMinute'>;
+export type DegPerHour = Brand<number, 'DegPerHour'>;
+export type DegPerSecond = Brand<number, 'DegPerSecond'>;
+export type RadPerSecond = Brand<number, 'RadPerSecond'>;
+export type Hertz = Brand<number, 'Hertz'>;
+
+export const arcsecPerSec = (v: number): ArcsecPerSecond => v as ArcsecPerSecond;
+export const arcsecPerMin = (v: number): ArcsecPerMinute => v as ArcsecPerMinute;
+export const degPerHour = (v: number): DegPerHour => v as DegPerHour;
+export const degPerSec = (v: number): DegPerSecond => v as DegPerSecond;
+export const radPerSec = (v: number): RadPerSecond => v as RadPerSecond;
+export const hertz = (v: number): Hertz => v as Hertz;
+
+/** Sidereal tracking rate: the sky moves 15.041″ per second (360.9856°/day). */
+export const SIDEREAL_RATE_ARCSEC_PER_SEC = 15.041_066_9;
+
+/** Seconds per minute (for rate conversions; not a physical constant of the domain). */
+const SECONDS_PER_MINUTE = 60;
+
+// 1°/hr == 1″/s exactly (3600″/deg ÷ 3600 s/hr), so deg/hr <-> arcsec/s is identity in magnitude.
+export const degPerHourToArcsecPerSec = (r: DegPerHour): ArcsecPerSecond =>
+  arcsecPerSec(r as number);
+export const arcsecPerSecToDegPerHour = (r: ArcsecPerSecond): DegPerHour => degPerHour(r as number);
+export const arcsecPerMinToArcsecPerSec = (r: ArcsecPerMinute): ArcsecPerSecond =>
+  arcsecPerSec((r as number) / SECONDS_PER_MINUTE);
+export const arcsecPerSecToArcsecPerMin = (r: ArcsecPerSecond): ArcsecPerMinute =>
+  arcsecPerMin((r as number) * SECONDS_PER_MINUTE);
+export const degPerSecToArcsecPerSec = (r: DegPerSecond): ArcsecPerSecond =>
+  arcsecPerSec((r as number) * ARCSEC_PER_DEGREE);
+export const degPerSecToRadPerSec = (r: DegPerSecond): RadPerSecond =>
+  radPerSec((r as number) / DEG_PER_RADIAN);
+export const radPerSecToArcsecPerSec = (r: RadPerSecond): ArcsecPerSecond =>
+  arcsecPerSec((r as number) * ARCSEC_PER_RADIAN);
+
+/** Convert an oscillation period (s) to frequency (Hz) and back. */
+export const periodToFrequency = (period: Seconds): Hertz => hertz(1 / (period as number));
+export const frequencyToPeriod = (f: Hertz): Seconds => seconds(1 / (f as number));
+
+// --- Gaussian FWHM <-> sigma ---------------------------------------------
+
+/** FWHM = 2√(2 ln 2) · σ ≈ 2.3548 σ for a Gaussian profile. */
+export const FWHM_PER_SIGMA = 2 * Math.sqrt(2 * Math.LN2);
+
+export const fwhmToSigma = (fwhm: Arcseconds): Arcseconds =>
+  arcsec((fwhm as number) / FWHM_PER_SIGMA);
+export const sigmaToFwhm = (sigma: Arcseconds): Arcseconds =>
+  arcsec((sigma as number) * FWHM_PER_SIGMA);
+
+// --- 2D vector / covariance utilities (R2 blur & rotation) ----------------
+
+export * from './linalg.js';
