@@ -372,6 +372,77 @@ describe('exposure sweep (R2-020..024, F05/F06)', () => {
   });
 });
 
+describe('recommendations (R2-031, F07)', () => {
+  it('recommends a shorter focal length when the target does not fit (F07)', () => {
+    const res = calculate(
+      request(
+        ephemerisDoc((d) => {
+          d.mount.architecture = 'german_equatorial';
+          d.optics.native_focal_length_mm = 2000; // long FL
+          d.target.custom_target!.geometry = {
+            shape: 'ellipse',
+            width_arcmin: 180, // very large target
+            height_arcmin: 120,
+            position_angle_deg: 0,
+          };
+        }),
+        ['recommendations'],
+      ),
+    );
+    const recs = res.recommendations ?? [];
+    const fit = recs.find((r) => r.rule_id === 'framing.target_does_not_fit');
+    expect(fit).toBeDefined();
+    expect(fit!.severity).toBe('critical');
+    expect(fit!.proposed_changes?.[0]?.field_path).toBe('/optics/native_focal_length_mm');
+    // Critical framing recommendation sorts first.
+    expect(recs[0]!.rule_id).toBe('framing.target_does_not_fit');
+  });
+
+  it('does not recommend a longer exposure when tracking motion already fails (invariant §48)', () => {
+    const res = calculate(
+      request(
+        ephemerisDoc((d) => {
+          d.mount.architecture = 'german_equatorial';
+          d.capture.exposure_s = 20;
+          d.camera.readout = { readout_time_s: 3, transfer_time_s: 0 }; // heavy overhead
+          d.tracking = {
+            enabled: true,
+            error_model: {
+              periodic_error: {
+                amplitude_arcsec: 25,
+                amplitude_statistic: 'peak_to_peak',
+                period_s: 60,
+                direction: 'right_ascension',
+              },
+              drift_rate: { value_arcsec_per_min: 10, direction: 'right_ascension' },
+            },
+            quality_thresholds: { maximum_motion_pixels: 1 },
+          };
+        }),
+        ['recommendations'],
+      ),
+    );
+    const recs = res.recommendations ?? [];
+    expect(recs.some((r) => r.rule_id === 'exposure.readout_overhead')).toBe(false);
+    // ...but it should flag the motion problem.
+    expect(recs.some((r) => r.rule_id === 'tracking.motion_dominates')).toBe(true);
+  });
+
+  it('produces no critical recommendations for a well-behaved design', () => {
+    const res = calculate(
+      request(
+        ephemerisDoc((d) => {
+          d.mount.architecture = 'german_equatorial';
+          d.tracking = { enabled: false };
+        }),
+        ['recommendations'],
+      ),
+    );
+    const recs = res.recommendations ?? [];
+    expect(recs.every((r) => r.severity !== 'critical')).toBe(true);
+  });
+});
+
 describe('direct-horizontal scenario still yields a single-sample geometry', () => {
   it('handles the F01-style direct alt/az mode without an ephemeris', () => {
     const res = calculate(

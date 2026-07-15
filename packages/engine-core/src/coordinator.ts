@@ -27,6 +27,7 @@ import {
   type DerivedKinematics,
   type DerivedTracking,
 } from './groups-r2.js';
+import { generateRecommendations } from './recommendations.js';
 import type { Mat2 } from '@ste/units';
 import type {
   CalculationGroup,
@@ -48,6 +49,18 @@ export const SUPPORTED_GROUPS: readonly CalculationGroup[] = [
   'blur',
   'field_rotation',
   'exposure_sweep',
+  'recommendations',
+];
+
+/** Groups the recommendation rules read; requesting recommendations pulls them in. */
+const RECOMMENDATION_PREREQS: readonly CalculationGroup[] = [
+  'target_framing',
+  'sampling',
+  'mount_kinematics',
+  'tracking',
+  'field_rotation',
+  'blur',
+  'exposure_sweep',
 ];
 
 /** A placeholder timestamp so the pure engine never reads a clock itself. */
@@ -66,6 +79,10 @@ function expandRequestedGroups(requested: CalculationGroup[]): Set<CalculationGr
     } else if (SUPPORTED_GROUPS.includes(g)) {
       wanted.add(g);
     }
+  }
+  // Recommendations read many groups; pull their prerequisites into the request.
+  if (wanted.has('recommendations')) {
+    for (const g of RECOMMENDATION_PREREQS) wanted.add(g);
   }
   return wanted;
 }
@@ -189,6 +206,13 @@ export function calculate(
     calculatedGroups.push('exposure_sweep');
   }
 
+  // 10. Recommendations (read the computed result groups; v0.9 §25 R2-031).
+  let recommendations: CalculationResponse['recommendations'];
+  if (wanted.has('recommendations')) {
+    recommendations = generateRecommendations(doc, results);
+    calculatedGroups.push('recommendations');
+  }
+
   const status = deriveStatus(wanted, calculatedGroups, validation.ok);
 
   return {
@@ -207,6 +231,7 @@ export function calculate(
     issues: validation.issues,
     assumptions: [...ctx.assumptions.values()],
     formulas: ctx.formulas,
+    ...(recommendations != null ? { recommendations } : {}),
   };
 }
 

@@ -10,6 +10,7 @@
 
 import type { DesignDocument } from './document.js';
 import type { CalculationAssumption, CalculationIssue, FormulaRecord } from './diagnostics.js';
+import type { Recommendation } from './recommendations.js';
 import type { ResultGroups } from './results.js';
 import type { SemVer } from './version.js';
 
@@ -106,5 +107,6 @@ export interface CalculationResponse {
   issues: CalculationIssue[];
   assumptions: CalculationAssumption[];
   formulas?: FormulaRecord[];
+  recommendations?: Recommendation[];
   diagnostics?: Record<string, unknown>;
 }
