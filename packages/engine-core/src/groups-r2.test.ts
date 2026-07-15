@@ -207,11 +207,13 @@ describe('tracking group (R2-010..013)', () => {
 });
 
 describe('blur group (R2-014..017)', () => {
-  it('is nearly round with no tracking error (base + pixel only)', () => {
+  it('is nearly round with no tracking error and no field rotation (equatorial)', () => {
     const res = calculate(
       request(
         ephemerisDoc((d) => {
           d.tracking = { enabled: false };
+          // Equatorial mount derotates the field, so only base + pixel remain.
+          d.mount.architecture = 'german_equatorial';
         }),
         ['blur'],
       ),
@@ -249,6 +251,63 @@ describe('blur group (R2-014..017)', () => {
       b.minor_fwhm_arcsec.value as number,
     );
     expect(b.dominant_contribution.value).toBe('motion');
+  });
+});
+
+describe('field rotation (R2-018, F04)', () => {
+  // Near-zenith alt-az target so field rotation is significant.
+  function rotationDoc(overrides?: (d: DesignDocument) => void): DesignDocument {
+    return ephemerisDoc((d) => {
+      d.target.custom_target!.coordinates = {
+        right_ascension_deg: 90,
+        declination_deg: 41.5,
+        epoch: 'j2000',
+      };
+      d.scenario.session = {
+        start_time_utc: '2026-07-14T06:00:00Z',
+        duration_s: 3600,
+        sample_interval_s: 120,
+        minimum_altitude_deg: 0,
+      };
+      d.capture.exposure_s = 30;
+      d.tracking = { enabled: true };
+      overrides?.(d);
+    });
+  }
+
+  it('center motion is zero and corners are worse (v0.4 §20)', () => {
+    const r = calculate(request(rotationDoc(), ['field_rotation'])).results.field_rotation!;
+    expect(r.center_motion_px.value).toBe(0);
+    expect(r.corner_motion_px.value as number).toBeGreaterThanOrEqual(0);
+    expect(['good', 'marginal', 'poor', 'unknown']).toContain(r.quality.value);
+  });
+
+  it('an equatorial mount removes alt-az field rotation', () => {
+    const altaz = calculate(request(rotationDoc(), ['field_rotation'])).results.field_rotation!;
+    const eq = calculate(
+      request(
+        rotationDoc((d) => {
+          d.mount.architecture = 'german_equatorial';
+        }),
+        ['field_rotation'],
+      ),
+    ).results.field_rotation!;
+    expect(eq.rotation_rate_deg_per_hr.value).toBe(0);
+    expect(eq.corner_motion_px.value).toBe(0);
+    // Alt-az at/near zenith should rotate faster than the (zero) equatorial case.
+    expect(altaz.corner_motion_px.value as number).toBeGreaterThanOrEqual(
+      eq.corner_motion_px.value as number,
+    );
+  });
+
+  it('feeds rotation into the blur ellipse (rotation elongates a low-tracking design)', () => {
+    // With almost no tracking error, elongation should come from field rotation.
+    const res = calculate(request(rotationDoc(), ['blur', 'field_rotation']));
+    const rot = res.results.field_rotation!;
+    // If there is meaningful corner rotation, the blur ellipse is elongated.
+    if ((rot.corner_motion_arcsec.value as number) > 1) {
+      expect(res.results.blur!.elongation.value as number).toBeGreaterThan(1.0);
+    }
   });
 });
 

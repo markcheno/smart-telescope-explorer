@@ -47,6 +47,7 @@ import type {
   BlurQuality,
   BlurResults,
   DesignDocument,
+  FieldRotationResults,
   MountArchitecture,
   MountKinematicResults,
   ScenarioGeometryResults,
@@ -76,6 +77,8 @@ export interface DerivedKinematics {
   referenceAltitudeDeg: number | null;
   /** Field-rotation (parallactic) rate at the reference sample, deg/s. */
   parallacticRateDegPerS: number | null;
+  /** Fastest field-rotation (parallactic) rate over the session, deg/s. */
+  maxParallacticRateDegPerS: number | null;
   altAz: AltAzKinematics | null;
   equatorial: EquatorialKinematics | null;
   zenithRisk: boolean;
@@ -178,13 +181,15 @@ export function deriveKinematics(doc: DesignDocument): DerivedKinematics {
     }
   }
 
-  // Field-rotation (parallactic) rate at the reference sample.
+  // Field-rotation (parallactic) rate at the reference sample and its peak.
   let parallacticRateDegPerS: number | null = null;
+  let maxParallacticRateDegPerS: number | null = null;
   if (samples.length >= 2) {
     const times = samples.map((s) => s.timeOffsetS);
     const q = unwrapDegrees(samples.map((s) => s.parallacticAngleDeg));
     const { rates } = numericalDerivatives(times, q);
     parallacticRateDegPerS = referenceIndex >= 0 ? rates[referenceIndex]! : null;
+    maxParallacticRateDegPerS = rates.reduce((m, r) => Math.max(m, Math.abs(r)), 0);
   }
 
   return {
@@ -194,6 +199,7 @@ export function deriveKinematics(doc: DesignDocument): DerivedKinematics {
     referenceIndex,
     referenceAltitudeDeg,
     parallacticRateDegPerS,
+    maxParallacticRateDegPerS,
     altAz,
     equatorial,
     zenithRisk,
@@ -516,5 +522,108 @@ export function computeBlur(
     }),
     dominant_contribution: valid<string>(dominant, '', { confidence: conf }),
     quality: valid<BlurQuality>(classifyElongation(ellipse.elongation), '', { confidence: conf }),
+  };
+}
+
+// --- field rotation group (R2-018) ---------------------------------------
+
+const DEG_TO_RAD = Math.PI / 180;
+
+function cornerRotationQuality(motionPx: number | null): BlurQuality {
+  if (motionPx == null || !Number.isFinite(motionPx)) return 'unknown';
+  if (motionPx < 0.5) return 'good';
+  if (motionPx <= 1) return 'marginal';
+  return 'poor';
+}
+
+/**
+ * Field rotation across the exposure (spec v0.4 §20). Only alt-az mounts rotate
+ * the field; an equatorial mount derotates it (rate → 0). Returns the rotation
+ * covariance at the frame corner for the blur ellipse.
+ */
+export function computeFieldRotation(
+  doc: DesignDocument,
+  geometry: DerivedGeometry,
+  kinematics: DerivedKinematics,
+  _ctx: CalcContext,
+): { results: FieldRotationResults; rotationCovariance: Mat2 | null } {
+  const exposure = pos(doc.capture.exposure_s);
+  const px = geometry.effectiveHorizontalPixels;
+  const py = geometry.effectiveVerticalPixels;
+  const scale =
+    geometry.imageScaleXArcsec != null && geometry.imageScaleYArcsec != null
+      ? (raw(geometry.imageScaleXArcsec) + raw(geometry.imageScaleYArcsec)) / 2
+      : null;
+  const conf = confidence('low');
+
+  const isAltAz = kinematics.architecture === 'alt_azimuth';
+  const rateDegPerS = isAltAz ? Math.abs(kinematics.parallacticRateDegPerS ?? 0) : 0;
+  const maxRateDegPerS = isAltAz ? Math.abs(kinematics.maxParallacticRateDegPerS ?? 0) : 0;
+
+  if (exposure == null || px == null || py == null || scale == null) {
+    const dep = ['/capture/exposure_s', '/scenario', '/camera/sensor'];
+    const na = (u: string) => unavailable(u, { dependencies: dep });
+    return {
+      results: {
+        rotation_rate_deg_per_hr: na('deg/hr'),
+        delta_rotation_deg: na('deg'),
+        center_motion_px: valid(0, 'px', { confidence: conf }),
+        corner_motion_px: na('px'),
+        corner_motion_arcsec: na('arcsec'),
+        rotation_exposure_limit_s: na('s'),
+        session_min_exposure_limit_s: na('s'),
+        quality: valid<BlurQuality>('unknown', ''),
+      },
+      rotationCovariance: null,
+    };
+  }
+
+  const cornerRadiusPx = 0.5 * Math.hypot(px, py);
+  const cornerRadiusArcsec = cornerRadiusPx * scale;
+  const deltaThetaRad = rateDegPerS * DEG_TO_RAD * exposure;
+  const cornerMotionPx = deltaThetaRad * cornerRadiusPx;
+  const cornerMotionArcsec = deltaThetaRad * cornerRadiusArcsec;
+
+  const thresholdPx = pos(doc.tracking.quality_thresholds?.maximum_corner_rotation_pixels) ?? 1;
+  const limit = (rateSec: number): number | null => {
+    const rad = rateSec * DEG_TO_RAD * cornerRadiusPx;
+    return rad > 0 ? thresholdPx / rad : null;
+  };
+  const nowLimit = limit(rateDegPerS);
+  const sessionLimit = limit(maxRateDegPerS);
+
+  // Rotation covariance at the corner (directional smear ~ line of length cornerMotion).
+  const rotationCovariance: Mat2 | null =
+    cornerMotionArcsec > 0 ? mat2((cornerMotionArcsec * cornerMotionArcsec) / 12, 0, 0) : null;
+
+  const secResult = (v: number | null) =>
+    v == null
+      ? unavailable('s', { dependencies: ['/mount/architecture'] })
+      : valid(v, 's', { confidence: conf, displayPrecision: INTEGER_PRECISION });
+
+  return {
+    results: {
+      rotation_rate_deg_per_hr: valid(rateDegPerS * SECONDS_PER_HOUR, 'deg/hr', {
+        confidence: conf,
+        displayPrecision: decimals(3),
+      }),
+      delta_rotation_deg: valid(rateDegPerS * exposure, 'deg', {
+        confidence: conf,
+        displayPrecision: decimals(4),
+      }),
+      center_motion_px: valid(0, 'px', { confidence: confidence('high') }),
+      corner_motion_px: valid(cornerMotionPx, 'px', {
+        confidence: conf,
+        displayPrecision: decimals(2),
+      }),
+      corner_motion_arcsec: valid(cornerMotionArcsec, 'arcsec', {
+        confidence: conf,
+        displayPrecision: decimals(2),
+      }),
+      rotation_exposure_limit_s: secResult(nowLimit),
+      session_min_exposure_limit_s: secResult(sessionLimit),
+      quality: valid<BlurQuality>(cornerRotationQuality(cornerMotionPx), '', { confidence: conf }),
+    },
+    rotationCovariance,
   };
 }

@@ -18,6 +18,7 @@ import {
 } from './groups.js';
 import {
   computeBlur,
+  computeFieldRotation,
   computeMountKinematics,
   computeScenarioGeometry,
   computeTracking,
@@ -25,6 +26,7 @@ import {
   type DerivedKinematics,
   type DerivedTracking,
 } from './groups-r2.js';
+import type { Mat2 } from '@ste/units';
 import type {
   CalculationGroup,
   CalculationRequest,
@@ -43,6 +45,7 @@ export const SUPPORTED_GROUPS: readonly CalculationGroup[] = [
   'mount_kinematics',
   'tracking',
   'blur',
+  'field_rotation',
 ];
 
 /** A placeholder timestamp so the pure engine never reads a clock itself. */
@@ -97,7 +100,8 @@ export function calculate(
     wanted.has('target_framing') ||
     wanted.has('sampling') ||
     wanted.has('tracking') ||
-    wanted.has('blur');
+    wanted.has('blur') ||
+    wanted.has('field_rotation');
   if (needStatic) {
     const geometry = computeStaticGeometry(doc, ctx);
     derived = geometry.derived;
@@ -119,9 +123,15 @@ export function calculate(
     calculatedGroups.push('sampling');
   }
 
-  // 5. Scenario geometry + mount kinematics (shared session path).
+  // 5. Scenario geometry + mount kinematics + field rotation share the session
+  //    path; blur also needs the field-rotation covariance, so compute the
+  //    kinematics whenever any of these (or blur) is requested.
   let kinematics: DerivedKinematics | null = null;
-  const needKinematics = wanted.has('scenario_geometry') || wanted.has('mount_kinematics');
+  const needKinematics =
+    wanted.has('scenario_geometry') ||
+    wanted.has('mount_kinematics') ||
+    wanted.has('field_rotation') ||
+    wanted.has('blur');
   if (needKinematics) {
     kinematics = deriveKinematics(doc);
     if (wanted.has('scenario_geometry')) {
@@ -147,10 +157,25 @@ export function calculate(
     }
   }
 
-  // 7. Blur (base + motion + rotation + pixel covariance -> ellipse).
-  //    Rotation covariance arrives with the field-rotation group (null for now).
+  // 7. Field rotation (needs kinematics + geometry). Blur consumes its
+  //    rotation covariance, so compute it when field_rotation or blur is asked.
+  let rotationCovariance: Mat2 | null = null;
+  if (
+    (wanted.has('field_rotation') || wanted.has('blur')) &&
+    derived != null &&
+    kinematics != null
+  ) {
+    const rotation = computeFieldRotation(doc, derived, kinematics, ctx);
+    rotationCovariance = rotation.rotationCovariance;
+    if (wanted.has('field_rotation')) {
+      results.field_rotation = rotation.results;
+      calculatedGroups.push('field_rotation');
+    }
+  }
+
+  // 8. Blur (base + motion + rotation + pixel covariance -> ellipse).
   if (wanted.has('blur') && derived != null) {
-    results.blur = computeBlur(doc, derived, trackingDerived, null, ctx);
+    results.blur = computeBlur(doc, derived, trackingDerived, rotationCovariance, ctx);
     calculatedGroups.push('blur');
   }
 

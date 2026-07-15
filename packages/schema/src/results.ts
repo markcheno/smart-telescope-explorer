@@ -199,12 +199,25 @@ export interface BlurResults {
   quality: ResultValue<BlurQuality>;
 }
 
-// Groups below gain field-level detail as their calculations land. They are
-// keyed generically so partial responses and the results map stay typed.
+// --- field rotation (R2, v0.8 §23) ---------------------------------------
 
 export interface FieldRotationResults {
-  [key: string]: ResultValue | ResultValue[] | undefined;
+  rotation_rate_deg_per_hr: ResultValue;
+  /** Field rotation across a single exposure. */
+  delta_rotation_deg: ResultValue;
+  /** Center motion is always zero for pure field rotation (v0.4 §20). */
+  center_motion_px: ResultValue;
+  corner_motion_px: ResultValue;
+  corner_motion_arcsec: ResultValue;
+  /** Exposure (s) at which corner rotation reaches the threshold, at the reference. */
+  rotation_exposure_limit_s: ResultValue;
+  /** Worst-case exposure limit across the session (fastest rotation). */
+  session_min_exposure_limit_s: ResultValue;
+  quality: ResultValue<BlurQuality>;
 }
+
+// Groups below gain field-level detail as their calculations land. They are
+// keyed generically so partial responses and the results map stay typed.
 export interface SensitivityResults {
   [key: string]: ResultValue | ResultValue[] | undefined;
 }
