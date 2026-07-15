@@ -17,6 +17,7 @@ import type {
   CameraInput,
   DesignDocument,
   OpticsInput,
+  Recommendation,
   ScenarioInput,
 } from '@ste/schema';
 import { loadCurrentDesign, saveCurrentDesign } from './persistence.js';
@@ -72,9 +73,33 @@ function buildRequest(design: DesignDocument): CalculationRequest {
     design_revision: design.revision,
     engine_version: design.calculation_engine_version,
     calculation_mode: 'normal',
-    requested_groups: ['static_geometry', 'target_framing', 'sampling'],
+    requested_groups: [
+      'static_geometry',
+      'target_framing',
+      'sampling',
+      'scenario_geometry',
+      'mount_kinematics',
+      'tracking',
+      'blur',
+      'field_rotation',
+      'exposure_sweep',
+      'recommendations',
+    ],
     design,
   };
+}
+
+/** Apply a JSON-Pointer patch value onto a design draft (R2 recommendation apply). */
+function applyPointer(draft: DesignDocument, pointer: string, value: unknown): void {
+  const parts = pointer.split('/').filter(Boolean);
+  if (parts.length === 0) return;
+  let node: Record<string, unknown> = draft as unknown as Record<string, unknown>;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i]!;
+    if (typeof node[key] !== 'object' || node[key] == null) node[key] = {};
+    node = node[key] as Record<string, unknown>;
+  }
+  node[parts[parts.length - 1]!] = value;
 }
 
 export interface DesignStore {
@@ -87,6 +112,7 @@ export interface DesignStore {
   setName: (name: string) => void;
   edit: (mutate: (draft: DesignDocument) => void) => void;
   replaceDesign: (design: DesignDocument) => void;
+  applyRecommendation: (rec: Recommendation) => void;
   save: () => void;
 }
 
@@ -130,6 +156,14 @@ export function DesignProvider({ children }: { children: ReactNode }): JSX.Eleme
           d.metadata.name = name;
         }),
       replaceDesign: (design) => dispatch({ type: 'replace', design }),
+      applyRecommendation: (rec: Recommendation) =>
+        edit((d) => {
+          for (const change of rec.proposed_changes ?? []) {
+            if (change.kind === 'replace' && change.proposed_value != null) {
+              applyPointer(d, change.field_path, change.proposed_value);
+            }
+          }
+        }),
       save: () => dispatch({ type: 'markSaved' }),
     }),
     [state.design, state.saveState, results, edit],

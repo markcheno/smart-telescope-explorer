@@ -6,6 +6,7 @@
  */
 
 import { formatResult } from '../components/format.js';
+import { RecommendationsPanel } from './RecommendationsPanel.js';
 import { useDesign } from '../state/store.js';
 
 export function OverviewView(): JSX.Element {
@@ -13,6 +14,8 @@ export function OverviewView(): JSX.Element {
   const g = results.results.static_geometry;
   const framing = results.results.target_framing;
   const sampling = results.results.sampling;
+  const blur = results.results.blur;
+  const exposure = results.results.exposure_sweep;
   const topIssue = results.issues.find((i) => i.severity === 'error' || i.severity === 'warning');
 
   return (
@@ -25,14 +28,18 @@ export function OverviewView(): JSX.Element {
           label="Field of view"
           value={`${formatResult(g?.field_of_view_x_deg)} × ${formatResult(g?.field_of_view_y_deg)}`}
         />
-        <Metric label="Focal ratio" value={`f/${formatResult(g?.focal_ratio)}`} />
-        <Metric label="Base FWHM" value={formatResult(sampling?.base_fwhm_arcsec)} />
         <Metric label="Sampling" value={formatResult(sampling?.classification)} />
+        <Metric label="Final blur (major)" value={formatResult(blur?.major_fwhm_arcsec)} />
+        <Metric label="Elongation" value={formatResult(blur?.elongation)} />
+        <Metric label="Recommended exposure" value={formatResult(exposure?.best_exposure_s)} />
+        <Metric label="Blur quality" value={formatResult(blur?.quality)} />
       </div>
       <div className="overview__limitation">
         <span className="overview__limitation-label">Primary limitation</span>
         <span>{topIssue != null ? topIssue.message : 'No blocking issues detected.'}</span>
       </div>
+      <h3 className="overview__subtitle">Recommendations</h3>
+      <RecommendationsPanel />
     </div>
   );
 }

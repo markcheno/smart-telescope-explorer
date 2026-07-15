@@ -12,16 +12,27 @@ import { ResultsRail } from './components/ResultsRail.js';
 import { ScenarioSection } from './features/ScenarioSection.js';
 import { OpticsSection } from './features/OpticsSection.js';
 import { CameraSection } from './features/CameraSection.js';
+import { MountSection } from './features/MountSection.js';
+import { TrackingSection } from './features/TrackingSection.js';
 import { OverviewView } from './analysis/OverviewView.js';
 import { FramingView } from './analysis/FramingView.js';
 import { SamplingView } from './analysis/SamplingView.js';
+import { TrackingView } from './analysis/TrackingView.js';
+import { BlurView } from './analysis/BlurView.js';
+import { FieldRotationView } from './analysis/FieldRotationView.js';
+import { ExposureView } from './analysis/ExposureView.js';
 
-type AnalysisTab = 'overview' | 'framing' | 'sampling';
+type AnalysisTab =
+  'overview' | 'framing' | 'sampling' | 'tracking' | 'blur' | 'rotation' | 'exposure';
 
 const TABS: { id: AnalysisTab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'framing', label: 'Framing' },
   { id: 'sampling', label: 'Sampling' },
+  { id: 'tracking', label: 'Tracking' },
+  { id: 'blur', label: 'Blur' },
+  { id: 'rotation', label: 'Rotation' },
+  { id: 'exposure', label: 'Exposure' },
 ];
 
 export function App(): JSX.Element {
@@ -36,6 +47,8 @@ export function App(): JSX.Element {
           <ScenarioSection />
           <OpticsSection />
           <CameraSection />
+          <MountSection />
+          <TrackingSection />
         </nav>
 
         <main className="analysis" aria-label="Analysis">
@@ -56,6 +69,10 @@ export function App(): JSX.Element {
             {tab === 'overview' && <OverviewView />}
             {tab === 'framing' && <FramingView />}
             {tab === 'sampling' && <SamplingView />}
+            {tab === 'tracking' && <TrackingView />}
+            {tab === 'blur' && <BlurView />}
+            {tab === 'rotation' && <FieldRotationView />}
+            {tab === 'exposure' && <ExposureView />}
           </div>
         </main>
 

@@ -463,3 +463,112 @@ button:disabled {
     display: none;
   }
 }
+
+/* R2 additions */
+.section__note {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+.quantity--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.view__tag {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+  padding: 1px 8px;
+  vertical-align: middle;
+}
+.overview__subtitle {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 16px 0 8px;
+}
+.exposure__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.table-scroll {
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+.exposure-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.exposure-table th,
+.exposure-table td {
+  text-align: right;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.exposure-table th {
+  color: var(--muted);
+  font-weight: 500;
+}
+.exposure-table__infeasible {
+  color: var(--muted);
+  opacity: 0.6;
+}
+.recs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.recs__item {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--muted);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+}
+.recs__item--critical {
+  border-left-color: var(--bad);
+}
+.recs__item--high_value {
+  border-left-color: var(--warn);
+}
+.recs__item--optional,
+.recs__item--low_value {
+  border-left-color: var(--accent);
+}
+.recs__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.recs__severity {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.recs__title {
+  font-weight: 600;
+}
+.recs__problem {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 4px 0 8px;
+}
+.recs__apply {
+  padding: 3px 12px;
+  font-size: 13px;
+}

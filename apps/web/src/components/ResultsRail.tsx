@@ -39,6 +39,9 @@ export function ResultsRail(): JSX.Element {
   const g = results.results.static_geometry;
   const framing = results.results.target_framing;
   const sampling = results.results.sampling;
+  const blur = results.results.blur;
+  const exposure = results.results.exposure_sweep;
+  const topRec = results.recommendations?.[0];
   const errorCount = results.issues.filter(
     (i) => i.severity === 'error' || i.severity === 'fatal',
   ).length;
@@ -65,7 +68,20 @@ export function ResultsRail(): JSX.Element {
         rv={sampling?.classification}
         hint={`${formatResult(sampling?.pixels_per_fwhm)} px/FWHM`}
       />
-      <ResultCard title="Base star FWHM" rv={sampling?.base_fwhm_arcsec} />
+      <ResultCard
+        title="Final blur"
+        rv={blur?.major_fwhm_arcsec}
+        hint={`elongation ${formatResult(blur?.elongation)}`}
+      />
+      <ResultCard title="Recommended exposure" rv={exposure?.best_exposure_s} />
+      {topRec != null && (
+        <div className="card">
+          <div className="card__title">Top recommendation</div>
+          <div className="card__value" style={{ fontSize: 15 }}>
+            {topRec.title}
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
