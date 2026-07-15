@@ -17,6 +17,9 @@ export default [
     rules: {
       ...tseslint.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // TypeScript resolves identifiers itself; no-undef only produces false
+      // positives on globals like structuredClone (typescript-eslint guidance).
+      'no-undef': 'off',
     },
   },
 ];

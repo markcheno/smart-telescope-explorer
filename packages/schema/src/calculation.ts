@@ -20,6 +20,7 @@ export const CALCULATION_GROUPS = [
   'validation',
   'static_geometry',
   'target_framing',
+  'sampling',
   'scenario_geometry',
   'mount_kinematics',
   'tracking',

@@ -45,6 +45,27 @@ importers:
         specifier: workspace:*
         version: link:../units
 
+  packages/engine-core:
+    dependencies:
+      '@ste/camera':
+        specifier: workspace:*
+        version: link:../camera
+      '@ste/optics':
+        specifier: workspace:*
+        version: link:../optics
+      '@ste/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@ste/targets':
+        specifier: workspace:*
+        version: link:../targets
+      '@ste/units':
+        specifier: workspace:*
+        version: link:../units
+      '@ste/validation':
+        specifier: workspace:*
+        version: link:../validation
+
   packages/optics:
     dependencies:
       '@ste/schema':
@@ -64,6 +85,16 @@ importers:
       '@ste/units':
         specifier: workspace:*
         version: link:../units
+
+  packages/test-fixtures:
+    dependencies:
+      '@ste/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      '@ste/engine-core':
+        specifier: workspace:*
+        version: link:../engine-core
 
   packages/units: {}
 
