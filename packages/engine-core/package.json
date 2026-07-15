@@ -15,6 +15,7 @@
     "@ste/optics": "workspace:*",
     "@ste/schema": "workspace:*",
     "@ste/targets": "workspace:*",
+    "@ste/tracking": "workspace:*",
     "@ste/units": "workspace:*",
     "@ste/validation": "workspace:*"
   }

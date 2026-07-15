@@ -11,7 +11,7 @@
  * and optional rates.
  */
 
-import { airmass, sessionPath, type SessionSample } from '@ste/astronomy';
+import { airmass, sessionPath, unwrapDegrees, type SessionSample } from '@ste/astronomy';
 import {
   computeAltAzKinematics,
   computeEquatorialKinematics,
@@ -19,14 +19,22 @@ import {
   type AltAzKinematics,
   type EquatorialKinematics,
 } from '@ste/kinematics';
-import { unwrapDegrees } from '@ste/astronomy';
+import {
+  extractComponents,
+  jitterVarianceArcsec2,
+  sweepPhases,
+  type DuringExposureResult,
+} from '@ste/tracking';
+import { arcsec, eigen2, mag2, mat2, matAdd2, raw, sigmaToFwhm, type Mat2 } from '@ste/units';
 import type {
   DesignDocument,
   MountArchitecture,
   MountKinematicResults,
   ScenarioGeometryResults,
+  TrackingQuality,
+  TrackingResults,
 } from '@ste/schema';
-import { CalcContext } from './groups.js';
+import { CalcContext, type DerivedGeometry } from './groups.js';
 import { confidence, decimals, INTEGER_PRECISION, unavailable, valid } from './result.js';
 
 /** Reader that accepts any finite number (including negatives and zero). */
@@ -293,5 +301,121 @@ export function computeMountKinematics(
       confidence: conf,
       displayPrecision: decimals(2),
     }),
+  };
+}
+
+// --- tracking group (R2-010..013) ----------------------------------------
+
+/** Deterministic motion covariance + isotropic jitter for the blur phase. */
+export interface DerivedTracking {
+  motionCovarianceArcsec2: Mat2 | null;
+  jitterVarianceArcsec2: number;
+}
+
+/** Blur ellipse FWHM (major axis, arcsec) of a covariance plus isotropic variance. */
+function covToMajorFwhmArcsec(cov: Mat2, isotropicVar: number): number {
+  const withIso = matAdd2(cov, mat2(isotropicVar, 0, isotropicVar));
+  const { major } = eigen2(withIso);
+  return raw(sigmaToFwhm(arcsec(Math.sqrt(major))));
+}
+
+function trackingQuality(motionPx: number | null): TrackingQuality {
+  if (motionPx == null || !Number.isFinite(motionPx)) return 'unknown';
+  if (motionPx < 0.5) return 'good';
+  if (motionPx <= 1) return 'marginal';
+  return 'poor';
+}
+
+export function computeTracking(
+  doc: DesignDocument,
+  geometry: DerivedGeometry,
+  _ctx: CalcContext,
+): { results: TrackingResults; derived: DerivedTracking } {
+  const exposure = pos(doc.capture.exposure_s);
+  const model = doc.tracking.error_model;
+  const conf = confidence('low');
+  const scale =
+    geometry.imageScaleXArcsec != null && geometry.imageScaleYArcsec != null
+      ? (raw(geometry.imageScaleXArcsec) + raw(geometry.imageScaleYArcsec)) / 2
+      : null;
+
+  if (exposure == null || model == null || doc.tracking.enabled === false) {
+    const dep = ['/tracking/error_model', '/capture/exposure_s'];
+    const na = () => unavailable('arcsec', { dependencies: dep });
+    return {
+      results: {
+        exposure_s:
+          exposure == null
+            ? unavailable('s', { dependencies: ['/capture/exposure_s'] })
+            : valid(exposure, 's', { confidence: conf }),
+        phase_count: valid(0, 'count', { confidence: conf }),
+        motion_max_displacement_arcsec: na(),
+        motion_rms_displacement_arcsec: na(),
+        motion_max_displacement_px: unavailable('px', { dependencies: dep }),
+        motion_fwhm_arcsec: na(),
+        median_max_displacement_arcsec: na(),
+        p95_max_displacement_arcsec: na(),
+        worst_max_displacement_arcsec: na(),
+        dominant_component: unavailable('', { dependencies: dep }),
+        quality: valid<TrackingQuality>('unknown', ''),
+      },
+      derived: { motionCovarianceArcsec2: null, jitterVarianceArcsec2: 0 },
+    };
+  }
+
+  const components = extractComponents(model);
+  const phaseCount = doc.tracking.error_model?.phase_policy === 'worst_case' ? 72 : 24;
+  const sweep = sweepPhases(components, exposure, { phaseCount });
+
+  // Selected policy result (v0.8 §22 conservative policy; default 95th percentile).
+  const policy = model.phase_policy ?? 'conservative';
+  const selected: DuringExposureResult =
+    policy === 'known_phase'
+      ? sweep.median
+      : policy === 'worst_case'
+        ? sweep.worst
+        : sweep.percentile95;
+
+  const jitterVar = jitterVarianceArcsec2(components);
+  const motionFwhm = covToMajorFwhmArcsec(selected.motionCovariance, jitterVar);
+  const maxPx = scale == null ? null : selected.maxDisplacementArcsec / scale;
+
+  // Dominant component by magnitude over the exposure.
+  const driftTotal = mag2(components.driftArcsecPerSec) * exposure;
+  const periodicPeak = mag2(components.periodicPeakArcsec);
+  const jitterRms = components.jitterRmsArcsec;
+  const dominant =
+    driftTotal >= periodicPeak && driftTotal >= jitterRms
+      ? 'drift'
+      : periodicPeak >= jitterRms
+        ? 'periodic_error'
+        : 'jitter';
+
+  const as = (v: number) => valid(v, 'arcsec', { confidence: conf, displayPrecision: decimals(2) });
+
+  return {
+    results: {
+      exposure_s: valid(exposure, 's', { confidence: conf }),
+      phase_count: valid(sweep.phaseCount, 'count', {
+        confidence: conf,
+        displayPrecision: INTEGER_PRECISION,
+      }),
+      motion_max_displacement_arcsec: as(selected.maxDisplacementArcsec),
+      motion_rms_displacement_arcsec: as(selected.rmsDisplacementArcsec),
+      motion_max_displacement_px:
+        maxPx == null
+          ? unavailable('px', { dependencies: ['/camera/sensor/pixel_pitch_x_um'] })
+          : valid(maxPx, 'px', { confidence: conf, displayPrecision: decimals(2) }),
+      motion_fwhm_arcsec: as(motionFwhm),
+      median_max_displacement_arcsec: as(sweep.median.maxDisplacementArcsec),
+      p95_max_displacement_arcsec: as(sweep.percentile95.maxDisplacementArcsec),
+      worst_max_displacement_arcsec: as(sweep.worst.maxDisplacementArcsec),
+      dominant_component: valid<string>(dominant, '', { confidence: conf }),
+      quality: valid<TrackingQuality>(trackingQuality(maxPx), '', { confidence: conf }),
+    },
+    derived: {
+      motionCovarianceArcsec2: selected.motionCovariance,
+      jitterVarianceArcsec2: jitterVar,
+    },
   };
 }

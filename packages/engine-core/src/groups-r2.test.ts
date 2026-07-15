@@ -142,6 +142,70 @@ describe('mount kinematics (R2-007/008)', () => {
   });
 });
 
+describe('tracking group (R2-010..013)', () => {
+  function withTracking(exposureS: number, driftPerMin: number): DesignDocument {
+    return ephemerisDoc((d) => {
+      d.capture.exposure_s = exposureS;
+      d.tracking = {
+        enabled: true,
+        error_model: {
+          drift_rate: { value_arcsec_per_min: driftPerMin, direction: 'right_ascension' },
+          periodic_error: {
+            amplitude_arcsec: 15,
+            amplitude_statistic: 'peak_to_peak',
+            period_s: 60,
+            direction: 'right_ascension',
+          },
+        },
+      };
+    });
+  }
+
+  it('produces during-exposure displacement, phase sweep, and a dominant component', () => {
+    const res = calculate(request(withTracking(20, 4), ['tracking']));
+    const t = res.results.tracking!;
+    expect(t.exposure_s.value).toBe(20);
+    expect(t.phase_count.value).toBe(24);
+    expect(t.motion_max_displacement_arcsec.value as number).toBeGreaterThan(0);
+    expect(t.worst_max_displacement_arcsec.value as number).toBeGreaterThanOrEqual(
+      t.median_max_displacement_arcsec.value as number,
+    );
+    expect(['drift', 'periodic_error', 'jitter']).toContain(t.dominant_component.value);
+    expect(['good', 'marginal', 'poor', 'unknown']).toContain(t.quality.value);
+    expect(t.motion_max_displacement_px.value as number).toBeGreaterThan(0);
+  });
+
+  it('drift-limited displacement doubles with exposure (invariant v0.4 §48)', () => {
+    const driftOnly = (exp: number) =>
+      ephemerisDoc((d) => {
+        d.capture.exposure_s = exp;
+        d.tracking = {
+          enabled: true,
+          error_model: {
+            drift_rate: { value_arcsec_per_min: 6, direction: 'right_ascension' },
+          },
+        };
+      });
+    const d20 = calculate(request(driftOnly(20), ['tracking'])).results.tracking!
+      .motion_max_displacement_arcsec.value as number;
+    const d40 = calculate(request(driftOnly(40), ['tracking'])).results.tracking!
+      .motion_max_displacement_arcsec.value as number;
+    expect(d40).toBeCloseTo(2 * d20, 4);
+  });
+
+  it('is unavailable when tracking is disabled', () => {
+    const res = calculate(
+      request(
+        ephemerisDoc((d) => {
+          d.tracking = { enabled: false };
+        }),
+        ['tracking'],
+      ),
+    );
+    expect(res.results.tracking!.motion_max_displacement_arcsec.status).toBe('unavailable');
+  });
+});
+
 describe('direct-horizontal scenario still yields a single-sample geometry', () => {
   it('handles the F01-style direct alt/az mode without an ephemeris', () => {
     const res = calculate(

@@ -158,12 +158,30 @@ export interface MountKinematicResults {
   max_condition_number: ResultValue;
 }
 
-// Groups below gain field-level detail as their calculations land (R2+). They
-// are keyed generically so partial responses and the results map stay typed.
+// --- tracking (R2, v0.8 §23) ---------------------------------------------
+
+export const TRACKING_QUALITIES = ['good', 'marginal', 'poor', 'unknown'] as const;
+export type TrackingQuality = (typeof TRACKING_QUALITIES)[number];
 
 export interface TrackingResults {
-  [key: string]: ResultValue | ResultValue[] | undefined;
+  exposure_s: ResultValue;
+  /** Number of periodic phases evaluated (1 when the phase is known). */
+  phase_count: ResultValue;
+  /** Selected-policy maximum on-sky excursion during the exposure. */
+  motion_max_displacement_arcsec: ResultValue;
+  motion_rms_displacement_arcsec: ResultValue;
+  motion_max_displacement_px: ResultValue;
+  motion_fwhm_arcsec: ResultValue;
+  median_max_displacement_arcsec: ResultValue;
+  p95_max_displacement_arcsec: ResultValue;
+  worst_max_displacement_arcsec: ResultValue;
+  dominant_component: ResultValue<string>;
+  quality: ResultValue<TrackingQuality>;
 }
+
+// Groups below gain field-level detail as their calculations land. They are
+// keyed generically so partial responses and the results map stay typed.
+
 export interface BlurResults {
   [key: string]: ResultValue | ResultValue[] | undefined;
 }

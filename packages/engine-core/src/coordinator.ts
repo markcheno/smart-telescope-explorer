@@ -19,6 +19,7 @@ import {
 import {
   computeMountKinematics,
   computeScenarioGeometry,
+  computeTracking,
   deriveKinematics,
   type DerivedKinematics,
 } from './groups-r2.js';
@@ -38,6 +39,7 @@ export const SUPPORTED_GROUPS: readonly CalculationGroup[] = [
   'sampling',
   'scenario_geometry',
   'mount_kinematics',
+  'tracking',
 ];
 
 /** A placeholder timestamp so the pure engine never reads a clock itself. */
@@ -85,10 +87,13 @@ export function calculate(
     calculatedGroups.push('validation');
   }
 
-  // 2. Static geometry (prerequisite for framing + sampling).
+  // 2. Static geometry (prerequisite for framing, sampling, and tracking px).
   let derived: DerivedGeometry | null = null;
   const needStatic =
-    wanted.has('static_geometry') || wanted.has('target_framing') || wanted.has('sampling');
+    wanted.has('static_geometry') ||
+    wanted.has('target_framing') ||
+    wanted.has('sampling') ||
+    wanted.has('tracking');
   if (needStatic) {
     const geometry = computeStaticGeometry(doc, ctx);
     derived = geometry.derived;
@@ -123,6 +128,12 @@ export function calculate(
       results.mount_kinematics = computeMountKinematics(kinematics, ctx);
       calculatedGroups.push('mount_kinematics');
     }
+  }
+
+  // 6. Tracking (during-exposure motion; needs static geometry for px).
+  if (wanted.has('tracking') && derived != null) {
+    results.tracking = computeTracking(doc, derived, ctx).results;
+    calculatedGroups.push('tracking');
   }
 
   const status = deriveStatus(wanted, calculatedGroups, validation.ok);
