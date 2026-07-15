@@ -127,6 +127,15 @@ importers:
         specifier: workspace:*
         version: link:../validation
 
+  packages/kinematics:
+    dependencies:
+      '@ste/astronomy':
+        specifier: workspace:*
+        version: link:../astronomy
+      '@ste/units':
+        specifier: workspace:*
+        version: link:../units
+
   packages/optics:
     dependencies:
       '@ste/schema':
