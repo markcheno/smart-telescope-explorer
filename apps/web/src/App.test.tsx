@@ -123,3 +123,17 @@ describe('R3: sensitivity, session yield, and a non-preliminary exposure metric'
     expect(screen.getAllByText('Effective integration').length).toBeGreaterThan(0);
   });
 });
+
+describe('R3: compare against a commercial reference (v0.9 §40)', () => {
+  it('pins the Seestar S30 and shows a side-by-side comparison table', () => {
+    renderApp();
+    // Pin the Seestar reference from the comparison tray.
+    fireEvent.click(screen.getByRole('button', { name: /Seestar S30/ }));
+    // The tray toggle becomes enabled; expand it.
+    fireEvent.click(screen.getByRole('button', { name: /Comparison · 1 pinned/ }));
+    // The comparison table lists the reference column and a sensitivity metric.
+    expect(screen.getAllByText(/Seestar S30/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Relative stacked SNR/)).toBeTruthy();
+    expect(screen.getByText(/Point-source throughput/)).toBeTruthy();
+  });
+});

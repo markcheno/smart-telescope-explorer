@@ -53,6 +53,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@ste/catalogs':
+        specifier: workspace:*
+        version: link:../../packages/catalogs
       '@ste/engine-core':
         specifier: workspace:*
         version: link:../../packages/engine-core

@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { AppBar } from './components/AppBar.js';
 import { ResultsRail } from './components/ResultsRail.js';
+import { ComparisonTray } from './components/ComparisonTray.js';
 import { ScenarioSection } from './features/ScenarioSection.js';
 import { OpticsSection } from './features/OpticsSection.js';
 import { CameraSection } from './features/CameraSection.js';
@@ -88,9 +89,7 @@ export function App(): JSX.Element {
 
         <ResultsRail />
       </div>
-      <footer className="tray" aria-label="Comparison tray">
-        Comparison tray · 0 pinned designs
-      </footer>
+      <ComparisonTray />
     </div>
   );
 }

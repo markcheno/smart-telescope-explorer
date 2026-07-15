@@ -8,13 +8,23 @@
  * — they recompute whenever the design changes.
  */
 
-import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from 'react';
-import { calculate } from '@ste/engine-core';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useReducer,
+  useState,
+  type ReactNode,
+} from 'react';
+import { calculate, compareDesigns } from '@ste/engine-core';
+import { REFERENCE_DESIGNS } from '@ste/catalogs';
 import { F01_DOCUMENT } from '@ste/test-fixtures';
 import type {
   CalculationRequest,
   CalculationResponse,
   CameraInput,
+  ComparisonResponse,
   DesignDocument,
   OpticsInput,
   Recommendation,
@@ -105,6 +115,11 @@ function applyPointer(draft: DesignDocument, pointer: string, value: unknown): v
   node[parts[parts.length - 1]!] = value;
 }
 
+export interface PinnedDesign {
+  design: DesignDocument;
+  label: string;
+}
+
 export interface DesignStore {
   design: DesignDocument;
   results: CalculationResponse;
@@ -117,7 +132,18 @@ export interface DesignStore {
   replaceDesign: (design: DesignDocument) => void;
   applyRecommendation: (rec: Recommendation) => void;
   save: () => void;
+  // Comparison (up to 3 pinned + the current design = 4).
+  pinnedDesigns: PinnedDesign[];
+  referenceDesigns: readonly DesignDocument[];
+  pinCurrent: () => void;
+  pinDesign: (design: DesignDocument, label: string) => void;
+  unpinDesign: (index: number) => void;
+  /** Comparison of [current, ...pinned], or null when nothing is pinned. */
+  comparison: ComparisonResponse | null;
 }
+
+/** Maximum pinned designs alongside the current one (4 total, v0.3 §K). */
+const MAX_PINNED = 3;
 
 const DesignContext = createContext<DesignStore | null>(null);
 
@@ -135,6 +161,25 @@ export function DesignProvider({ children }: { children: ReactNode }): JSX.Eleme
     const at = nowIso();
     return calculate(buildRequest(state.design), { startedAt: at, completedAt: at });
   }, [state.design]);
+
+  const [pinnedDesigns, setPinnedDesigns] = useState<PinnedDesign[]>([]);
+
+  const comparison = useMemo<ComparisonResponse | null>(() => {
+    if (pinnedDesigns.length === 0) return null;
+    return compareDesigns({
+      message_type: 'compare_designs',
+      request_id: 'web-comparison',
+      baseline_index: 0,
+      designs: [
+        { design: state.design, role: 'baseline', label: state.design.metadata.name },
+        ...pinnedDesigns.map((p) => ({
+          design: p.design,
+          role: 'candidate' as const,
+          label: p.label,
+        })),
+      ],
+    });
+  }, [state.design, pinnedDesigns]);
 
   const store = useMemo<DesignStore>(
     () => ({
@@ -168,8 +213,25 @@ export function DesignProvider({ children }: { children: ReactNode }): JSX.Eleme
           }
         }),
       save: () => dispatch({ type: 'markSaved' }),
+      pinnedDesigns,
+      referenceDesigns: REFERENCE_DESIGNS,
+      comparison,
+      pinCurrent: () =>
+        setPinnedDesigns((prev) =>
+          prev.length >= MAX_PINNED
+            ? prev
+            : [
+                ...prev,
+                { design: structuredClone(state.design), label: state.design.metadata.name },
+              ],
+        ),
+      pinDesign: (design, label) =>
+        setPinnedDesigns((prev) =>
+          prev.length >= MAX_PINNED ? prev : [...prev, { design, label }],
+        ),
+      unpinDesign: (index) => setPinnedDesigns((prev) => prev.filter((_, i) => i !== index)),
     }),
-    [state.design, state.saveState, results, edit],
+    [state.design, state.saveState, results, edit, pinnedDesigns, comparison],
   );
 
   return <DesignContext.Provider value={store}>{children}</DesignContext.Provider>;

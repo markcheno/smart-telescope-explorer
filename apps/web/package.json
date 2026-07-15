@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@ste/catalogs": "workspace:*",
     "@ste/engine-core": "workspace:*",
     "@ste/schema": "workspace:*",
     "@ste/test-fixtures": "workspace:*",
