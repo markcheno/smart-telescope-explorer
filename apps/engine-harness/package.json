@@ -1,0 +1,17 @@
+{
+  "name": "@ste/engine-harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "ste-harness": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@ste/engine-core": "workspace:*",
+    "@ste/schema": "workspace:*",
+    "@ste/test-fixtures": "workspace:*"
+  }
+}
