@@ -16,12 +16,26 @@
 
 import { readFileSync } from 'node:fs';
 import { calculate } from '@ste/engine-core';
-import { F01_DOCUMENT, F02_DOCUMENT, fixtureRequest } from '@ste/test-fixtures';
+import {
+  F01_DOCUMENT,
+  F02_DOCUMENT,
+  F03_DOCUMENT,
+  F04_DOCUMENT,
+  F05_DOCUMENT,
+  F06_DOCUMENT,
+  F07_DOCUMENT,
+  fixtureRequest,
+} from '@ste/test-fixtures';
 import type { CalculationGroup, DesignDocument, ResultGroups, ResultValue } from '@ste/schema';
 
 const FIXTURES: Record<string, DesignDocument> = {
   F01: F01_DOCUMENT,
   F02: F02_DOCUMENT,
+  F03: F03_DOCUMENT,
+  F04: F04_DOCUMENT,
+  F05: F05_DOCUMENT,
+  F06: F06_DOCUMENT,
+  F07: F07_DOCUMENT,
 };
 
 interface Args {
