@@ -12,6 +12,7 @@
     "@ste/astronomy": "workspace:*",
     "@ste/blur": "workspace:*",
     "@ste/camera": "workspace:*",
+    "@ste/exposure": "workspace:*",
     "@ste/kinematics": "workspace:*",
     "@ste/optics": "workspace:*",
     "@ste/schema": "workspace:*",

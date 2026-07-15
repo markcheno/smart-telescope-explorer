@@ -311,6 +311,67 @@ describe('field rotation (R2-018, F04)', () => {
   });
 });
 
+describe('exposure sweep (R2-020..024, F05/F06)', () => {
+  it('recommends longer exposure when readout overhead dominates (F05)', () => {
+    const res = calculate(
+      request(
+        ephemerisDoc((d) => {
+          d.mount.architecture = 'german_equatorial'; // no field rotation
+          d.capture.exposure_s = 5;
+          d.camera.readout = { readout_time_s: 2, transfer_time_s: 0 };
+          d.tracking = { enabled: true, error_model: {} }; // negligible tracking error
+          d.capture.exposure_sweep = {
+            enabled: true,
+            minimum_exposure_s: 1,
+            maximum_exposure_s: 60,
+            candidate_mode: 'default_candidates',
+          };
+        }),
+        ['exposure_sweep'],
+      ),
+    );
+    const e = res.results.exposure_sweep!;
+    expect(e.candidates.length).toBeGreaterThan(3);
+    // Overhead-limited -> best exposure well above the shortest candidate.
+    expect(e.best_exposure_s.value as number).toBeGreaterThanOrEqual(10);
+  });
+
+  it('recommends shorter exposure when periodic rejection dominates (F06)', () => {
+    const res = calculate(
+      request(
+        ephemerisDoc((d) => {
+          d.mount.architecture = 'german_equatorial';
+          d.camera.readout = { readout_time_s: 0.1, transfer_time_s: 0 };
+          d.tracking = {
+            enabled: true,
+            error_model: {
+              periodic_error: {
+                amplitude_arcsec: 12,
+                amplitude_statistic: 'peak_to_peak',
+                period_s: 40,
+                direction: 'right_ascension',
+              },
+            },
+            quality_thresholds: { maximum_motion_pixels: 1 },
+          };
+          d.capture.exposure_sweep = {
+            enabled: true,
+            minimum_exposure_s: 2,
+            maximum_exposure_s: 60,
+          };
+        }),
+        ['exposure_sweep'],
+      ),
+    );
+    const e = res.results.exposure_sweep!;
+    const best = e.best_exposure_s.value as number;
+    const longest = e.longest_acceptable_s.value as number;
+    // Rejection-limited -> best exposure is at the short end, below the longest feasible.
+    expect(best).toBeLessThanOrEqual(longest);
+    expect(best).toBeLessThan(60);
+  });
+});
+
 describe('direct-horizontal scenario still yields a single-sample geometry', () => {
   it('handles the F01-style direct alt/az mode without an ephemeris', () => {
     const res = calculate(

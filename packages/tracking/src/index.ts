@@ -181,4 +181,32 @@ export function jitterVarianceArcsec2(c: TrackingComponents): number {
   return c.jitterRmsArcsec * c.jitterRmsArcsec;
 }
 
+/**
+ * Fraction of periodic phases whose maximum during-exposure displacement stays
+ * within `thresholdArcsec` — a preliminary frame-acceptance estimate driven by
+ * periodic phase (v0.4 §28). With a known phase (or no periodic term) the result
+ * is 0 or 1.
+ */
+export function acceptanceFraction(
+  c: TrackingComponents,
+  exposureS: number,
+  thresholdArcsec: number,
+  options: { phaseCount?: number } = {},
+): number {
+  const hasPeriodic = c.periodicPeriodS != null && c.periodicPeriodS > 0;
+  if (!hasPeriodic || c.periodicPhaseRad != null) {
+    const r = simulateDuringExposure(c, exposureS, c.periodicPhaseRad ?? 0);
+    return r.maxDisplacementArcsec <= thresholdArcsec ? 1 : 0;
+  }
+  const phaseCount = options.phaseCount ?? NORMAL_PHASE_COUNT;
+  let pass = 0;
+  for (let i = 0; i < phaseCount; i++) {
+    const phase = (2 * Math.PI * i) / phaseCount;
+    if (simulateDuringExposure(c, exposureS, phase).maxDisplacementArcsec <= thresholdArcsec) {
+      pass++;
+    }
+  }
+  return pass / phaseCount;
+}
+
 export type { Mat2, Vec2 };

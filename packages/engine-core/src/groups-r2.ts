@@ -20,11 +20,14 @@ import {
   type EquatorialKinematics,
 } from '@ste/kinematics';
 import {
+  acceptanceFraction,
   extractComponents,
   jitterVarianceArcsec2,
   sweepPhases,
   type DuringExposureResult,
+  type TrackingComponents,
 } from '@ste/tracking';
+import { generateCandidates, recommendExposure, type CandidateEval } from '@ste/exposure';
 import {
   classifyElongation,
   contributionFwhmArcsec,
@@ -47,6 +50,8 @@ import type {
   BlurQuality,
   BlurResults,
   DesignDocument,
+  ExposureCandidateRow,
+  ExposureSweepResults,
   FieldRotationResults,
   MountArchitecture,
   MountKinematicResults,
@@ -62,6 +67,8 @@ const finite = (v: number | null | undefined): number | null =>
   v != null && Number.isFinite(v) ? v : null;
 const pos = (v: number | null | undefined): number | null =>
   v != null && Number.isFinite(v) && v > 0 ? v : null;
+const nonNeg = (v: number | null | undefined): number | null =>
+  v != null && Number.isFinite(v) && v >= 0 ? v : null;
 
 const DEFAULT_SAMPLE_INTERVAL_S = 300;
 const SECONDS_PER_HOUR = 3600;
@@ -625,5 +632,153 @@ export function computeFieldRotation(
       quality: valid<BlurQuality>(cornerRotationQuality(cornerMotionPx), '', { confidence: conf }),
     },
     rotationCovariance,
+  };
+}
+
+// --- exposure sweep group (R2-020..024) ----------------------------------
+
+/** Frame overhead (s): readout + transfer time between exposures. */
+function frameOverheadS(doc: DesignDocument): number {
+  return (
+    (nonNeg(doc.camera.readout?.readout_time_s) ?? 0) +
+    (nonNeg(doc.camera.readout?.transfer_time_s) ?? 0)
+  );
+}
+
+/** Evaluate one exposure candidate for the sweep (v0.4 §26 per-candidate metrics). */
+function evaluateCandidate(
+  exposureS: number,
+  components: TrackingComponents,
+  overheadS: number,
+  scaleArcsecPerPx: number,
+  rotationRateRadPerS: number,
+  cornerRadiusPx: number,
+  motionThresholdPx: number,
+): CandidateEval {
+  const motionArcsec = sweepPhases(components, exposureS).percentile95.maxDisplacementArcsec;
+  const motionPx = motionArcsec / scaleArcsecPerPx;
+  const rotationPx = rotationRateRadPerS * exposureS * cornerRadiusPx;
+  const dutyCycle = exposureS / (exposureS + overheadS);
+  const acceptance = acceptanceFraction(
+    components,
+    exposureS,
+    motionThresholdPx * scaleArcsecPerPx,
+  );
+
+  // Hard failure: motion or rotation grossly exceeds the quality threshold.
+  const hardPx = motionThresholdPx * 2;
+  const hardFail = motionPx > hardPx || rotationPx > hardPx;
+  const reason = hardFail
+    ? rotationPx > hardPx
+      ? 'field_rotation_exceeds_limit'
+      : 'tracking_motion_exceeds_limit'
+    : undefined;
+
+  return {
+    exposureS,
+    motionPx,
+    rotationPx,
+    dutyCycle,
+    acceptance,
+    relativeScore: hardFail ? 0 : dutyCycle * acceptance,
+    hardFail,
+    ...(reason ? { hardFailReason: reason } : {}),
+  };
+}
+
+export function computeExposureSweep(
+  doc: DesignDocument,
+  geometry: DerivedGeometry,
+  kinematics: DerivedKinematics,
+  _ctx: CalcContext,
+): ExposureSweepResults {
+  const conf = confidence('low');
+  const scale =
+    geometry.imageScaleXArcsec != null && geometry.imageScaleYArcsec != null
+      ? (raw(geometry.imageScaleXArcsec) + raw(geometry.imageScaleYArcsec)) / 2
+      : null;
+  const px = geometry.effectiveHorizontalPixels;
+  const py = geometry.effectiveVerticalPixels;
+
+  const naGroup = (): ExposureSweepResults => {
+    const dep = ['/capture/exposure_s', '/tracking/error_model'];
+    return {
+      candidates: [],
+      best_exposure_s: unavailable('s', { dependencies: dep }),
+      recommended_min_s: unavailable('s', { dependencies: dep }),
+      recommended_max_s: unavailable('s', { dependencies: dep }),
+      shortest_practical_s: unavailable('s', { dependencies: dep }),
+      longest_acceptable_s: unavailable('s', { dependencies: dep }),
+      hard_limit_s: unavailable('s', { dependencies: dep }),
+      hard_limit_reason: unavailable('', { dependencies: dep }),
+      plateau: valid<boolean>(false, ''),
+      boundary_optimum: valid<boolean>(false, ''),
+    };
+  };
+
+  if (scale == null || px == null || py == null) return naGroup();
+
+  const sweepCfg = doc.capture.exposure_sweep;
+  const candidatesS = generateCandidates({
+    userValueS: doc.capture.exposure_s,
+    minimumS: sweepCfg?.minimum_exposure_s ?? null,
+    maximumS: sweepCfg?.maximum_exposure_s ?? null,
+    sampleCount: sweepCfg?.sample_count ?? null,
+    ...(sweepCfg?.candidate_mode ? { mode: sweepCfg.candidate_mode } : {}),
+    ...(sweepCfg?.explicit_candidates_s ? { explicitS: sweepCfg.explicit_candidates_s } : {}),
+  });
+  if (candidatesS.length === 0) return naGroup();
+
+  const components = extractComponents(doc.tracking.error_model);
+  const overheadS = frameOverheadS(doc);
+  const cornerRadiusPx = 0.5 * Math.hypot(px, py);
+  const isAltAz = kinematics.architecture === 'alt_azimuth';
+  const rotationRateRadPerS = isAltAz
+    ? Math.abs(kinematics.parallacticRateDegPerS ?? 0) * (Math.PI / 180)
+    : 0;
+  const motionThresholdPx = pos(doc.tracking.quality_thresholds?.maximum_motion_pixels) ?? 1;
+
+  const evals = candidatesS.map((e) =>
+    evaluateCandidate(
+      e,
+      components,
+      overheadS,
+      scale,
+      rotationRateRadPerS,
+      cornerRadiusPx,
+      motionThresholdPx,
+    ),
+  );
+  const rec = recommendExposure(evals, sweepCfg?.near_optimal_fraction ?? undefined);
+
+  const rows: ExposureCandidateRow[] = evals.map((e) => ({
+    exposure_s: e.exposureS,
+    acceptance: e.acceptance,
+    motion_px: e.motionPx,
+    rotation_px: e.rotationPx,
+    duty_cycle: e.dutyCycle,
+    relative_score: e.relativeScore,
+    feasible: !e.hardFail && e.relativeScore > 0,
+  }));
+
+  const sec = (v: number | null) =>
+    v == null
+      ? unavailable('s', { dependencies: ['/capture/exposure_s'] })
+      : valid(v, 's', { confidence: conf, displayPrecision: decimals(1) });
+
+  return {
+    candidates: rows,
+    best_exposure_s: sec(rec.bestExposureS),
+    recommended_min_s: sec(rec.recommendedMinS),
+    recommended_max_s: sec(rec.recommendedMaxS),
+    shortest_practical_s: sec(rec.shortestPracticalS),
+    longest_acceptable_s: sec(rec.longestAcceptableS),
+    hard_limit_s: sec(rec.hardLimitS),
+    hard_limit_reason:
+      rec.hardLimitReason == null
+        ? unavailable('', { dependencies: ['/tracking'] })
+        : valid<string>(rec.hardLimitReason, '', { confidence: conf }),
+    plateau: valid<boolean>(rec.plateau, '', { confidence: conf }),
+    boundary_optimum: valid<boolean>(rec.boundaryOptimum, '', { confidence: conf }),
   };
 }

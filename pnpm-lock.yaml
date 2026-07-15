@@ -123,6 +123,9 @@ importers:
       '@ste/camera':
         specifier: workspace:*
         version: link:../camera
+      '@ste/exposure':
+        specifier: workspace:*
+        version: link:../exposure
       '@ste/kinematics':
         specifier: workspace:*
         version: link:../kinematics
@@ -144,6 +147,8 @@ importers:
       '@ste/validation':
         specifier: workspace:*
         version: link:../validation
+
+  packages/exposure: {}
 
   packages/kinematics:
     dependencies:

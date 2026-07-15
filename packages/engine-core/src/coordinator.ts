@@ -18,6 +18,7 @@ import {
 } from './groups.js';
 import {
   computeBlur,
+  computeExposureSweep,
   computeFieldRotation,
   computeMountKinematics,
   computeScenarioGeometry,
@@ -46,6 +47,7 @@ export const SUPPORTED_GROUPS: readonly CalculationGroup[] = [
   'tracking',
   'blur',
   'field_rotation',
+  'exposure_sweep',
 ];
 
 /** A placeholder timestamp so the pure engine never reads a clock itself. */
@@ -101,7 +103,8 @@ export function calculate(
     wanted.has('sampling') ||
     wanted.has('tracking') ||
     wanted.has('blur') ||
-    wanted.has('field_rotation');
+    wanted.has('field_rotation') ||
+    wanted.has('exposure_sweep');
   if (needStatic) {
     const geometry = computeStaticGeometry(doc, ctx);
     derived = geometry.derived;
@@ -131,7 +134,8 @@ export function calculate(
     wanted.has('scenario_geometry') ||
     wanted.has('mount_kinematics') ||
     wanted.has('field_rotation') ||
-    wanted.has('blur');
+    wanted.has('blur') ||
+    wanted.has('exposure_sweep');
   if (needKinematics) {
     kinematics = deriveKinematics(doc);
     if (wanted.has('scenario_geometry')) {
@@ -177,6 +181,12 @@ export function calculate(
   if (wanted.has('blur') && derived != null) {
     results.blur = computeBlur(doc, derived, trackingDerived, rotationCovariance, ctx);
     calculatedGroups.push('blur');
+  }
+
+  // 9. Exposure sweep (preliminary fixed-session performance across candidates).
+  if (wanted.has('exposure_sweep') && derived != null && kinematics != null) {
+    results.exposure_sweep = computeExposureSweep(doc, derived, kinematics, ctx);
+    calculatedGroups.push('exposure_sweep');
   }
 
   const status = deriveStatus(wanted, calculatedGroups, validation.ok);

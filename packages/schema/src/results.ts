@@ -221,8 +221,32 @@ export interface FieldRotationResults {
 export interface SensitivityResults {
   [key: string]: ResultValue | ResultValue[] | undefined;
 }
+
+// --- exposure sweep (R2, v0.8 §23) ---------------------------------------
+
+/** One row of the exposure-sweep table (v0.9 §13). */
+export interface ExposureCandidateRow {
+  exposure_s: number;
+  acceptance: number;
+  motion_px: number;
+  rotation_px: number;
+  duty_cycle: number;
+  /** Preliminary relative fixed-session score. */
+  relative_score: number;
+  feasible: boolean;
+}
+
 export interface ExposureSweepResults {
-  [key: string]: ResultValue | ResultValue[] | undefined;
+  candidates: ExposureCandidateRow[];
+  best_exposure_s: ResultValue;
+  recommended_min_s: ResultValue;
+  recommended_max_s: ResultValue;
+  shortest_practical_s: ResultValue;
+  longest_acceptable_s: ResultValue;
+  hard_limit_s: ResultValue;
+  hard_limit_reason: ResultValue<string>;
+  plateau: ResultValue<boolean>;
+  boundary_optimum: ResultValue<boolean>;
 }
 export interface SessionResults {
   [key: string]: ResultValue | ResultValue[] | undefined;
