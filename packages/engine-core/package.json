@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ste/astronomy": "workspace:*",
+    "@ste/blur": "workspace:*",
     "@ste/camera": "workspace:*",
     "@ste/kinematics": "workspace:*",
     "@ste/optics": "workspace:*",

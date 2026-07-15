@@ -206,6 +206,52 @@ describe('tracking group (R2-010..013)', () => {
   });
 });
 
+describe('blur group (R2-014..017)', () => {
+  it('is nearly round with no tracking error (base + pixel only)', () => {
+    const res = calculate(
+      request(
+        ephemerisDoc((d) => {
+          d.tracking = { enabled: false };
+        }),
+        ['blur'],
+      ),
+    );
+    const b = res.results.blur!;
+    expect(b.major_fwhm_arcsec.value as number).toBeGreaterThan(0);
+    expect(b.elongation.value as number).toBeCloseTo(1, 1);
+    expect(b.quality.value).toBe('good');
+  });
+
+  it('strong directional tracking error elongates the ellipse (F03 directional dominance)', () => {
+    const res = calculate(
+      request(
+        ephemerisDoc((d) => {
+          d.capture.exposure_s = 20;
+          d.tracking = {
+            enabled: true,
+            error_model: {
+              periodic_error: {
+                amplitude_arcsec: 15,
+                amplitude_statistic: 'peak_to_peak',
+                period_s: 60,
+                direction: 'right_ascension',
+              },
+              drift_rate: { value_arcsec_per_min: 6, direction: 'right_ascension' },
+            },
+          };
+        }),
+        ['blur'],
+      ),
+    );
+    const b = res.results.blur!;
+    expect(b.elongation.value as number).toBeGreaterThan(1.1);
+    expect(b.major_fwhm_arcsec.value as number).toBeGreaterThan(
+      b.minor_fwhm_arcsec.value as number,
+    );
+    expect(b.dominant_contribution.value).toBe('motion');
+  });
+});
+
 describe('direct-horizontal scenario still yields a single-sample geometry', () => {
   it('handles the F01-style direct alt/az mode without an ephemeris', () => {
     const res = calculate(

@@ -68,6 +68,25 @@ const pos = (v: number | null | undefined): number | null =>
 const nonNeg = (v: number | null | undefined): number | null =>
   v != null && Number.isFinite(v) && v >= 0 ? v : null;
 
+/**
+ * The base star FWHM (arcsec) — the R0 reference PSF from seeing, diffraction,
+ * and optical quality — reused by both the sampling group and the blur baseline.
+ */
+export function designBaseFwhmArcsec(
+  doc: DesignDocument,
+  derived: DerivedGeometry,
+): { fwhm: Arcseconds | null; opticalAssumed: boolean } {
+  const seeing = nonNeg(doc.scenario.conditions.seeing_fwhm_arcsec);
+  const seeingArcsec = seeing == null ? null : arcsec(seeing);
+  const blur = resolveOpticalFwhm(doc.optics.optical_blur, derived.effectiveFocalLengthMm);
+  const fwhm = baseFwhm({
+    seeingArcsec,
+    diffractionArcsec: derived.diffractionArcsec,
+    opticalArcsec: blur.fwhmArcsec,
+  });
+  return { fwhm, opticalAssumed: blur.assumed };
+}
+
 /** Accumulates deduplicated assumptions and formula records during a calculation. */
 export class CalcContext {
   readonly assumptions = new Map<string, CalculationAssumption>();

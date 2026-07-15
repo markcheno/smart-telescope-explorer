@@ -179,12 +179,29 @@ export interface TrackingResults {
   quality: ResultValue<TrackingQuality>;
 }
 
+// --- blur (R2, v0.8 §23) -------------------------------------------------
+
+export const BLUR_QUALITIES = ['good', 'marginal', 'poor', 'unknown'] as const;
+export type BlurQuality = (typeof BLUR_QUALITIES)[number];
+
+export interface BlurResults {
+  base_fwhm_arcsec: ResultValue;
+  motion_fwhm_arcsec: ResultValue;
+  rotation_fwhm_arcsec: ResultValue;
+  pixel_fwhm_arcsec: ResultValue;
+  major_fwhm_arcsec: ResultValue;
+  minor_fwhm_arcsec: ResultValue;
+  major_fwhm_px: ResultValue;
+  minor_fwhm_px: ResultValue;
+  elongation: ResultValue;
+  axis_angle_deg: ResultValue;
+  dominant_contribution: ResultValue<string>;
+  quality: ResultValue<BlurQuality>;
+}
+
 // Groups below gain field-level detail as their calculations land. They are
 // keyed generically so partial responses and the results map stay typed.
 
-export interface BlurResults {
-  [key: string]: ResultValue | ResultValue[] | undefined;
-}
 export interface FieldRotationResults {
   [key: string]: ResultValue | ResultValue[] | undefined;
 }

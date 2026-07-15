@@ -25,8 +25,27 @@ import {
   sweepPhases,
   type DuringExposureResult,
 } from '@ste/tracking';
-import { arcsec, eigen2, mag2, mat2, matAdd2, raw, sigmaToFwhm, type Mat2 } from '@ste/units';
+import {
+  classifyElongation,
+  contributionFwhmArcsec,
+  isotropicCovariance,
+  pixelCovariance,
+  totalBlur,
+} from '@ste/blur';
+import {
+  arcsec,
+  eigen2,
+  mag2,
+  mat2,
+  matAdd2,
+  raw,
+  sigmaToFwhm,
+  MAT2_ZERO,
+  type Mat2,
+} from '@ste/units';
 import type {
+  BlurQuality,
+  BlurResults,
   DesignDocument,
   MountArchitecture,
   MountKinematicResults,
@@ -34,7 +53,7 @@ import type {
   TrackingQuality,
   TrackingResults,
 } from '@ste/schema';
-import { CalcContext, type DerivedGeometry } from './groups.js';
+import { CalcContext, designBaseFwhmArcsec, type DerivedGeometry } from './groups.js';
 import { confidence, decimals, INTEGER_PRECISION, unavailable, valid } from './result.js';
 
 /** Reader that accepts any finite number (including negatives and zero). */
@@ -417,5 +436,85 @@ export function computeTracking(
       motionCovarianceArcsec2: selected.motionCovariance,
       jitterVarianceArcsec2: jitterVar,
     },
+  };
+}
+
+// --- blur group (R2-014..017) --------------------------------------------
+
+/**
+ * Combine the static base PSF, intra-frame motion, field rotation, and pixel
+ * response into the total blur ellipse (spec v0.4 §19). `rotationCovariance` is
+ * `null` until the field-rotation group runs.
+ */
+export function computeBlur(
+  doc: DesignDocument,
+  geometry: DerivedGeometry,
+  tracking: DerivedTracking | null,
+  rotationCovariance: Mat2 | null,
+  _ctx: CalcContext,
+): BlurResults {
+  const baseInfo = designBaseFwhmArcsec(doc, geometry);
+  const scaleX = geometry.imageScaleXArcsec;
+  const scaleY = geometry.imageScaleYArcsec;
+  const conf = confidence('low');
+
+  if (baseInfo.fwhm == null || scaleX == null || scaleY == null) {
+    const dep = ['/optics/optical_blur', '/scenario/conditions/seeing_fwhm_arcsec'];
+    const na = () => unavailable('arcsec', { dependencies: dep });
+    return {
+      base_fwhm_arcsec: na(),
+      motion_fwhm_arcsec: na(),
+      rotation_fwhm_arcsec: na(),
+      pixel_fwhm_arcsec: na(),
+      major_fwhm_arcsec: na(),
+      minor_fwhm_arcsec: na(),
+      major_fwhm_px: unavailable('px', { dependencies: dep }),
+      minor_fwhm_px: unavailable('px', { dependencies: dep }),
+      elongation: unavailable('', { dependencies: dep }),
+      axis_angle_deg: unavailable('deg', { dependencies: dep }),
+      dominant_contribution: unavailable('', { dependencies: dep }),
+      quality: valid<BlurQuality>('unknown', ''),
+    };
+  }
+
+  const baseCov = isotropicCovariance(baseInfo.fwhm);
+  const pixelCov = pixelCovariance(scaleX, scaleY);
+  const jitterVar = tracking?.jitterVarianceArcsec2 ?? 0;
+  const motionCovRaw = tracking?.motionCovarianceArcsec2 ?? MAT2_ZERO;
+  const motionCov = matAdd2(motionCovRaw, mat2(jitterVar, 0, jitterVar));
+  const rotationCov = rotationCovariance ?? MAT2_ZERO;
+
+  const ellipse = totalBlur([baseCov, motionCov, rotationCov, pixelCov]);
+  const meanScale = (raw(scaleX) + raw(scaleY)) / 2;
+
+  // Per-contribution FWHM for the contribution list / dominant source.
+  const contributions: { key: string; fwhm: number }[] = [
+    { key: 'base', fwhm: raw(baseInfo.fwhm) },
+    { key: 'motion', fwhm: contributionFwhmArcsec(motionCov) },
+    { key: 'rotation', fwhm: contributionFwhmArcsec(rotationCov) },
+    { key: 'pixel', fwhm: contributionFwhmArcsec(pixelCov) },
+  ];
+  const dominant = contributions.reduce((a, b) => (b.fwhm > a.fwhm ? b : a)).key;
+
+  const as = (v: number) => valid(v, 'arcsec', { confidence: conf, displayPrecision: decimals(2) });
+  const px = (v: number) =>
+    valid(v / meanScale, 'px', { confidence: conf, displayPrecision: decimals(2) });
+
+  return {
+    base_fwhm_arcsec: as(raw(baseInfo.fwhm)),
+    motion_fwhm_arcsec: as(contributions[1]!.fwhm),
+    rotation_fwhm_arcsec: as(contributions[2]!.fwhm),
+    pixel_fwhm_arcsec: as(contributions[3]!.fwhm),
+    major_fwhm_arcsec: as(ellipse.majorFwhmArcsec),
+    minor_fwhm_arcsec: as(ellipse.minorFwhmArcsec),
+    major_fwhm_px: px(ellipse.majorFwhmArcsec),
+    minor_fwhm_px: px(ellipse.minorFwhmArcsec),
+    elongation: valid(ellipse.elongation, '', { confidence: conf, displayPrecision: decimals(2) }),
+    axis_angle_deg: valid(ellipse.axisAngleDeg, 'deg', {
+      confidence: conf,
+      displayPrecision: decimals(1),
+    }),
+    dominant_contribution: valid<string>(dominant, '', { confidence: conf }),
+    quality: valid<BlurQuality>(classifyElongation(ellipse.elongation), '', { confidence: conf }),
   };
 }

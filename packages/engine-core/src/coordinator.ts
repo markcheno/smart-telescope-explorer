@@ -17,11 +17,13 @@ import {
   type DerivedGeometry,
 } from './groups.js';
 import {
+  computeBlur,
   computeMountKinematics,
   computeScenarioGeometry,
   computeTracking,
   deriveKinematics,
   type DerivedKinematics,
+  type DerivedTracking,
 } from './groups-r2.js';
 import type {
   CalculationGroup,
@@ -40,6 +42,7 @@ export const SUPPORTED_GROUPS: readonly CalculationGroup[] = [
   'scenario_geometry',
   'mount_kinematics',
   'tracking',
+  'blur',
 ];
 
 /** A placeholder timestamp so the pure engine never reads a clock itself. */
@@ -93,7 +96,8 @@ export function calculate(
     wanted.has('static_geometry') ||
     wanted.has('target_framing') ||
     wanted.has('sampling') ||
-    wanted.has('tracking');
+    wanted.has('tracking') ||
+    wanted.has('blur');
   if (needStatic) {
     const geometry = computeStaticGeometry(doc, ctx);
     derived = geometry.derived;
@@ -131,9 +135,23 @@ export function calculate(
   }
 
   // 6. Tracking (during-exposure motion; needs static geometry for px).
-  if (wanted.has('tracking') && derived != null) {
-    results.tracking = computeTracking(doc, derived, ctx).results;
-    calculatedGroups.push('tracking');
+  //    Compute once when tracking or blur is requested; blur consumes the
+  //    motion covariance from the tracking-derived struct.
+  let trackingDerived: DerivedTracking | null = null;
+  if ((wanted.has('tracking') || wanted.has('blur')) && derived != null) {
+    const tracking = computeTracking(doc, derived, ctx);
+    trackingDerived = tracking.derived;
+    if (wanted.has('tracking')) {
+      results.tracking = tracking.results;
+      calculatedGroups.push('tracking');
+    }
+  }
+
+  // 7. Blur (base + motion + rotation + pixel covariance -> ellipse).
+  //    Rotation covariance arrives with the field-rotation group (null for now).
+  if (wanted.has('blur') && derived != null) {
+    results.blur = computeBlur(doc, derived, trackingDerived, null, ctx);
+    calculatedGroups.push('blur');
   }
 
   const status = deriveStatus(wanted, calculatedGroups, validation.ok);
