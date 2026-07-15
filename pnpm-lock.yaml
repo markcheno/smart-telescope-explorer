@@ -170,6 +170,14 @@ importers:
 
   packages/schema: {}
 
+  packages/sensitivity:
+    dependencies:
+      '@ste/units':
+        specifier: workspace:*
+        version: link:../units
+
+  packages/session: {}
+
   packages/targets:
     dependencies:
       '@ste/schema':
