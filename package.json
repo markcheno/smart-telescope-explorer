@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "typecheck": "tsc --build",
+    "typecheck": "tsc --build && pnpm --filter @ste/web typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

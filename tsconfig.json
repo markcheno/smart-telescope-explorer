@@ -4,5 +4,7 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts", "vitest.config.ts", "eslint.config.js"]
+  "include": ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts", "vitest.config.ts", "eslint.config.js"],
+  "//": "apps/web has its own DOM-aware tsconfig and typecheck; exclude it here so the node-lib root build doesn't see browser globals.",
+  "exclude": ["apps/web"]
 }

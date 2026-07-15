@@ -1,0 +1,47 @@
+/**
+ * Overview view (spec v0.9 §7, §24 R1-017).
+ *
+ * A compact summary: the primary answers plus the top issue/limitation. Missing
+ * metrics are shown as unknown, never fabricated (v0.9 §7).
+ */
+
+import { formatResult } from '../components/format.js';
+import { useDesign } from '../state/store.js';
+
+export function OverviewView(): JSX.Element {
+  const { results } = useDesign();
+  const g = results.results.static_geometry;
+  const framing = results.results.target_framing;
+  const sampling = results.results.sampling;
+  const topIssue = results.issues.find((i) => i.severity === 'error' || i.severity === 'warning');
+
+  return (
+    <div className="view">
+      <h2 className="view__title">Overview</h2>
+      <div className="overview__grid">
+        <Metric label="Target fit" value={formatResult(framing?.fit_status)} />
+        <Metric label="Image scale" value={formatResult(g?.image_scale_x_arcsec_per_px)} />
+        <Metric
+          label="Field of view"
+          value={`${formatResult(g?.field_of_view_x_deg)} × ${formatResult(g?.field_of_view_y_deg)}`}
+        />
+        <Metric label="Focal ratio" value={`f/${formatResult(g?.focal_ratio)}`} />
+        <Metric label="Base FWHM" value={formatResult(sampling?.base_fwhm_arcsec)} />
+        <Metric label="Sampling" value={formatResult(sampling?.classification)} />
+      </div>
+      <div className="overview__limitation">
+        <span className="overview__limitation-label">Primary limitation</span>
+        <span>{topIssue != null ? topIssue.message : 'No blocking issues detected.'}</span>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }): JSX.Element {
+  return (
+    <div className="metric">
+      <div className="metric__label">{label}</div>
+      <div className="metric__value">{value}</div>
+    </div>
+  );
+}
