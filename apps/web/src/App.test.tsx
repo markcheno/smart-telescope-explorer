@@ -137,3 +137,15 @@ describe('R3: compare against a commercial reference (v0.9 §40)', () => {
     expect(screen.getByText(/Point-source throughput/)).toBeTruthy();
   });
 });
+
+describe('R3: constraints (v0.4 §37)', () => {
+  it('evaluates a target-must-fit constraint and shows a status', () => {
+    renderApp();
+    // Open the Constraints section and enable "Target must fit".
+    fireEvent.click(screen.getByRole('button', { name: /Constraints/ }));
+    const fitCheckbox = screen.getByLabelText('Target must fit') as HTMLInputElement;
+    fireEvent.click(fitCheckbox);
+    // The default F01 design frames its target, so the constraint passes.
+    expect(screen.getByText('Pass')).toBeTruthy();
+  });
+});

@@ -34,6 +34,7 @@ import {
   deriveSnrContext,
 } from './groups-r3.js';
 import { generateRecommendations } from './recommendations.js';
+import { evaluateConstraints } from './constraints.js';
 import type { Mat2 } from '@ste/units';
 import type {
   CalculationGroup,
@@ -58,6 +59,7 @@ export const SUPPORTED_GROUPS: readonly CalculationGroup[] = [
   'session',
   'sensitivity',
   'stack_geometry',
+  'constraints',
   'recommendations',
 ];
 
@@ -70,6 +72,15 @@ const RECOMMENDATION_PREREQS: readonly CalculationGroup[] = [
   'field_rotation',
   'blur',
   'exposure_sweep',
+];
+
+/** Groups a constraint may reference; requesting constraints pulls them in. */
+const CONSTRAINT_PREREQS: readonly CalculationGroup[] = [
+  'target_framing',
+  'tracking',
+  'blur',
+  'field_rotation',
+  'session',
 ];
 
 /** A placeholder timestamp so the pure engine never reads a clock itself. */
@@ -89,7 +100,10 @@ function expandRequestedGroups(requested: CalculationGroup[]): Set<CalculationGr
       wanted.add(g);
     }
   }
-  // Recommendations read many groups; pull their prerequisites into the request.
+  // Recommendations + constraints read many groups; pull their prerequisites in.
+  if (wanted.has('constraints')) {
+    for (const g of CONSTRAINT_PREREQS) wanted.add(g);
+  }
   if (wanted.has('recommendations')) {
     for (const g of RECOMMENDATION_PREREQS) wanted.add(g);
   }
@@ -256,7 +270,13 @@ export function calculate(
     calculatedGroups.push('stack_geometry');
   }
 
-  // 11. Recommendations (read the computed result groups; v0.9 §25 R2-031).
+  // 11. Constraints (evaluate against the computed result groups; v0.4 §37).
+  if (wanted.has('constraints')) {
+    results.constraints = evaluateConstraints(doc, results);
+    calculatedGroups.push('constraints');
+  }
+
+  // 12. Recommendations (read the computed result groups; v0.9 §25 R2-031).
   let recommendations: CalculationResponse['recommendations'];
   if (wanted.has('recommendations')) {
     recommendations = generateRecommendations(doc, results);
