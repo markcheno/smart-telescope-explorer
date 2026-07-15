@@ -108,9 +108,15 @@ importers:
 
   packages/engine-core:
     dependencies:
+      '@ste/astronomy':
+        specifier: workspace:*
+        version: link:../astronomy
       '@ste/camera':
         specifier: workspace:*
         version: link:../camera
+      '@ste/kinematics':
+        specifier: workspace:*
+        version: link:../kinematics
       '@ste/optics':
         specifier: workspace:*
         version: link:../optics

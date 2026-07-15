@@ -9,7 +9,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@ste/astronomy": "workspace:*",
     "@ste/camera": "workspace:*",
+    "@ste/kinematics": "workspace:*",
     "@ste/optics": "workspace:*",
     "@ste/schema": "workspace:*",
     "@ste/targets": "workspace:*",

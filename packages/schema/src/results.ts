@@ -12,6 +12,7 @@
  * but expected to gain detail as those calculations land.
  */
 
+import type { MountArchitecture } from './mount.js';
 import type { ConfidenceLevel } from './primitives.js';
 import type { SemVer } from './version.js';
 
@@ -130,15 +131,36 @@ export interface SamplingResults {
   classification: ResultValue<SamplingClassification>;
 }
 
+// --- scenario geometry (R2, v0.8 §23) ------------------------------------
+
+export interface ScenarioGeometryResults {
+  sample_count: ResultValue;
+  /** Altitude at the session reference sample (midpoint), or the direct altitude. */
+  reference_altitude_deg: ResultValue;
+  max_altitude_deg: ResultValue;
+  min_altitude_deg: ResultValue;
+  reference_airmass: ResultValue;
+  visible_duration_s: ResultValue;
+  below_minimum_duration_s: ResultValue;
+}
+
+// --- mount kinematics (R2, v0.8 §23) -------------------------------------
+
+export interface MountKinematicResults {
+  architecture: ResultValue<MountArchitecture>;
+  max_axis1_rate_deg_per_s: ResultValue;
+  max_axis2_rate_deg_per_s: ResultValue;
+  max_axis1_accel_deg_per_s2: ResultValue;
+  max_axis2_accel_deg_per_s2: ResultValue;
+  zenith_risk: ResultValue<boolean>;
+  /** Time offset (s) of the meridian crossing for equatorial mounts. */
+  meridian_crossing_s: ResultValue;
+  max_condition_number: ResultValue;
+}
+
 // Groups below gain field-level detail as their calculations land (R2+). They
 // are keyed generically so partial responses and the results map stay typed.
 
-export interface ScenarioGeometryResults {
-  [key: string]: ResultValue | ResultValue[] | undefined;
-}
-export interface MountKinematicResults {
-  [key: string]: ResultValue | ResultValue[] | undefined;
-}
 export interface TrackingResults {
   [key: string]: ResultValue | ResultValue[] | undefined;
 }

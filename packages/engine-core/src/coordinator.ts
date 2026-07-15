@@ -16,6 +16,12 @@ import {
   computeTargetFraming,
   type DerivedGeometry,
 } from './groups.js';
+import {
+  computeMountKinematics,
+  computeScenarioGeometry,
+  deriveKinematics,
+  type DerivedKinematics,
+} from './groups-r2.js';
 import type {
   CalculationGroup,
   CalculationRequest,
@@ -24,12 +30,14 @@ import type {
   ResultGroups,
 } from '@ste/schema';
 
-/** Groups the R0 engine can calculate. Others are recognised but not yet produced. */
+/** Groups the engine can currently calculate. Others are recognised but not yet produced. */
 export const SUPPORTED_GROUPS: readonly CalculationGroup[] = [
   'validation',
   'static_geometry',
   'target_framing',
   'sampling',
+  'scenario_geometry',
+  'mount_kinematics',
 ];
 
 /** A placeholder timestamp so the pure engine never reads a clock itself. */
@@ -100,6 +108,21 @@ export function calculate(
   if (wanted.has('sampling') && derived != null) {
     results.sampling = computeSampling(doc, derived, ctx);
     calculatedGroups.push('sampling');
+  }
+
+  // 5. Scenario geometry + mount kinematics (shared session path).
+  let kinematics: DerivedKinematics | null = null;
+  const needKinematics = wanted.has('scenario_geometry') || wanted.has('mount_kinematics');
+  if (needKinematics) {
+    kinematics = deriveKinematics(doc);
+    if (wanted.has('scenario_geometry')) {
+      results.scenario_geometry = computeScenarioGeometry(kinematics, ctx);
+      calculatedGroups.push('scenario_geometry');
+    }
+    if (wanted.has('mount_kinematics')) {
+      results.mount_kinematics = computeMountKinematics(kinematics, ctx);
+      calculatedGroups.push('mount_kinematics');
+    }
   }
 
   const status = deriveStatus(wanted, calculatedGroups, validation.ok);
