@@ -28,6 +28,8 @@ import {
   type TrackingComponents,
 } from '@ste/tracking';
 import { generateCandidates, recommendExposure, type CandidateEval } from '@ste/exposure';
+import { relativeStackScore } from '@ste/sensitivity';
+import { simulateSession } from '@ste/session';
 import {
   classifyElongation,
   contributionFwhmArcsec,
@@ -645,28 +647,44 @@ function frameOverheadS(doc: DesignDocument): number {
   );
 }
 
-/** Evaluate one exposure candidate for the sweep (v0.4 §26 per-candidate metrics). */
-function evaluateCandidate(
-  exposureS: number,
-  components: TrackingComponents,
-  overheadS: number,
-  scaleArcsecPerPx: number,
-  rotationRateRadPerS: number,
-  cornerRadiusPx: number,
-  motionThresholdPx: number,
-): CandidateEval {
-  const motionArcsec = sweepPhases(components, exposureS).percentile95.maxDisplacementArcsec;
-  const motionPx = motionArcsec / scaleArcsecPerPx;
-  const rotationPx = rotationRateRadPerS * exposureS * cornerRadiusPx;
-  const dutyCycle = exposureS / (exposureS + overheadS);
-  const acceptance = acceptanceFraction(
-    components,
+interface CandidateContext {
+  components: TrackingComponents;
+  overheadS: number;
+  sessionDurationS: number;
+  environmentalLosses: number[];
+  scaleArcsecPerPx: number;
+  rotationRateRadPerS: number;
+  cornerRadiusPx: number;
+  motionThresholdPx: number;
+  rotationThresholdPx: number;
+  /** Read-noise time constant (s) driving the relative stacked-SNR shape (R3). */
+  readNoiseTimeConstantS: number;
+}
+
+/**
+ * Evaluate one exposure candidate (v0.4 §26). The relative score is the R3
+ * fixed-session stacked SNR `√N_accepted · t/√(t + t_rn)` — read-noise-limited
+ * short subs, background-limited long subs, penalised by overhead and rejection.
+ */
+function evaluateCandidate(exposureS: number, c: CandidateContext): CandidateEval {
+  const motionArcsec = sweepPhases(c.components, exposureS).percentile95.maxDisplacementArcsec;
+  const motionPx = motionArcsec / c.scaleArcsecPerPx;
+  const rotationPx = c.rotationRateRadPerS * exposureS * c.cornerRadiusPx;
+  const dutyCycle = exposureS / (exposureS + c.overheadS);
+
+  const trackingAcceptance = acceptanceFraction(
+    c.components,
     exposureS,
-    motionThresholdPx * scaleArcsecPerPx,
+    c.motionThresholdPx * c.scaleArcsecPerPx,
   );
+  const rotationAcceptance = Math.min(
+    1,
+    Math.max(0, 1 - Math.max(0, (rotationPx - c.rotationThresholdPx) / c.rotationThresholdPx)),
+  );
+  const acceptance = trackingAcceptance * rotationAcceptance;
 
   // Hard failure: motion or rotation grossly exceeds the quality threshold.
-  const hardPx = motionThresholdPx * 2;
+  const hardPx = c.motionThresholdPx * 2;
   const hardFail = motionPx > hardPx || rotationPx > hardPx;
   const reason = hardFail
     ? rotationPx > hardPx
@@ -674,13 +692,24 @@ function evaluateCandidate(
       : 'tracking_motion_exceeds_limit'
     : undefined;
 
+  const session = simulateSession({
+    exposureS,
+    overheadS: c.overheadS,
+    sessionDurationS: c.sessionDurationS,
+    qualityAcceptance: acceptance,
+    environmentalLossFractions: c.environmentalLosses,
+  });
+  const relativeScore = hardFail
+    ? 0
+    : relativeStackScore(exposureS, session.framesAccepted, c.readNoiseTimeConstantS);
+
   return {
     exposureS,
     motionPx,
     rotationPx,
     dutyCycle,
     acceptance,
-    relativeScore: hardFail ? 0 : dutyCycle * acceptance,
+    relativeScore,
     hardFail,
     ...(reason ? { hardFailReason: reason } : {}),
   };
@@ -690,6 +719,7 @@ export function computeExposureSweep(
   doc: DesignDocument,
   geometry: DerivedGeometry,
   kinematics: DerivedKinematics,
+  readNoiseTimeConstantS: number,
   _ctx: CalcContext,
 ): ExposureSweepResults {
   const conf = confidence('low');
@@ -729,26 +759,27 @@ export function computeExposureSweep(
   });
   if (candidatesS.length === 0) return naGroup();
 
-  const components = extractComponents(doc.tracking.error_model);
-  const overheadS = frameOverheadS(doc);
-  const cornerRadiusPx = 0.5 * Math.hypot(px, py);
   const isAltAz = kinematics.architecture === 'alt_azimuth';
-  const rotationRateRadPerS = isAltAz
-    ? Math.abs(kinematics.parallacticRateDegPerS ?? 0) * (Math.PI / 180)
-    : 0;
-  const motionThresholdPx = pos(doc.tracking.quality_thresholds?.maximum_motion_pixels) ?? 1;
+  const candidateContext: CandidateContext = {
+    components: extractComponents(doc.tracking.error_model),
+    overheadS: frameOverheadS(doc),
+    sessionDurationS:
+      pos(doc.scenario.session?.duration_s) ?? pos(doc.capture.total_session_override_s) ?? 3600,
+    environmentalLosses: [
+      nonNeg(doc.scenario.conditions.environmental_frame_loss_fraction),
+      nonNeg(doc.scenario.conditions.horizon_obstruction_loss_fraction),
+    ].filter((v): v is number => v != null),
+    scaleArcsecPerPx: scale,
+    rotationRateRadPerS: isAltAz
+      ? Math.abs(kinematics.parallacticRateDegPerS ?? 0) * (Math.PI / 180)
+      : 0,
+    cornerRadiusPx: 0.5 * Math.hypot(px, py),
+    motionThresholdPx: pos(doc.tracking.quality_thresholds?.maximum_motion_pixels) ?? 1,
+    rotationThresholdPx: pos(doc.tracking.quality_thresholds?.maximum_corner_rotation_pixels) ?? 1,
+    readNoiseTimeConstantS,
+  };
 
-  const evals = candidatesS.map((e) =>
-    evaluateCandidate(
-      e,
-      components,
-      overheadS,
-      scale,
-      rotationRateRadPerS,
-      cornerRadiusPx,
-      motionThresholdPx,
-    ),
-  );
+  const evals = candidatesS.map((e) => evaluateCandidate(e, candidateContext));
   const rec = recommendExposure(evals, sweepCfg?.near_optimal_fraction ?? undefined);
 
   const rows: ExposureCandidateRow[] = evals.map((e) => ({

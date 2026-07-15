@@ -135,6 +135,12 @@ importers:
       '@ste/schema':
         specifier: workspace:*
         version: link:../schema
+      '@ste/sensitivity':
+        specifier: workspace:*
+        version: link:../sensitivity
+      '@ste/session':
+        specifier: workspace:*
+        version: link:../session
       '@ste/targets':
         specifier: workspace:*
         version: link:../targets

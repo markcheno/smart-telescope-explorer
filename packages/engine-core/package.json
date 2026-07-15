@@ -16,6 +16,8 @@
     "@ste/kinematics": "workspace:*",
     "@ste/optics": "workspace:*",
     "@ste/schema": "workspace:*",
+    "@ste/sensitivity": "workspace:*",
+    "@ste/session": "workspace:*",
     "@ste/targets": "workspace:*",
     "@ste/tracking": "workspace:*",
     "@ste/units": "workspace:*",

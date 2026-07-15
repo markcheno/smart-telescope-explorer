@@ -111,7 +111,7 @@ function main(): void {
   for (const key of resultKeys) {
     const group = response.results[key];
     if (group != null && !Array.isArray(group)) {
-      printGroup(key, group as Record<string, ResultValue<unknown>>);
+      printGroup(key, group as unknown as Record<string, ResultValue<unknown>>);
     }
   }
 

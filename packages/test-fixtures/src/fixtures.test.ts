@@ -8,6 +8,7 @@ import {
   F05_DOCUMENT,
   F06_DOCUMENT,
   F07_DOCUMENT,
+  F08_DOCUMENT,
   FIXTURES,
   fixtureRequest,
   type ExpectedValue,
@@ -213,5 +214,33 @@ describe('F07 framing failure (R2-036)', () => {
     );
     expect(rec).toBeDefined();
     expect(rec!.severity).toBe('critical');
+  });
+});
+
+describe('F08 sensitivity / frame yield (R3)', () => {
+  const res = calculate(fixtureRequest(F08_DOCUMENT, ['sensitivity', 'session', 'exposure_sweep']));
+
+  it('produces real throughput, effective integration, and a relative stacked-SNR score', () => {
+    const sens = res.results.sensitivity!;
+    const sess = res.results.session!;
+    expect(sens.point_source_throughput.value as number).toBeGreaterThan(0);
+    expect(sens.relative_stack_score.value as number).toBeGreaterThan(0);
+    expect(sens.photometric_available.value).toBe(false);
+    expect(sess.frames_accepted.value as number).toBeGreaterThan(0);
+    expect(sess.effective_integration_s.value as number).toBeGreaterThan(0);
+  });
+
+  it('a larger aperture raises the relative stacked-SNR score (√signal)', () => {
+    const big = calculate(
+      fixtureRequest({ ...F08_DOCUMENT, optics: { ...F08_DOCUMENT.optics, aperture_mm: 120 } }, [
+        'sensitivity',
+      ]),
+    ).results.sensitivity!.relative_stack_score.value as number;
+    expect(big).toBeGreaterThan(res.results.sensitivity!.relative_stack_score.value as number);
+  });
+
+  it('recommends a physically sensible exposure (read-noise floor keeps it off the 1 s minimum)', () => {
+    const e = res.results.exposure_sweep!;
+    expect(e.best_exposure_s.value as number).toBeGreaterThan(1);
   });
 });

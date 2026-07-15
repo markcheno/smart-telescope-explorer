@@ -27,6 +27,12 @@ import {
   type DerivedKinematics,
   type DerivedTracking,
 } from './groups-r2.js';
+import {
+  computeSensitivity,
+  computeSession,
+  computeStackGeometry,
+  deriveSnrContext,
+} from './groups-r3.js';
 import { generateRecommendations } from './recommendations.js';
 import type { Mat2 } from '@ste/units';
 import type {
@@ -49,6 +55,9 @@ export const SUPPORTED_GROUPS: readonly CalculationGroup[] = [
   'blur',
   'field_rotation',
   'exposure_sweep',
+  'session',
+  'sensitivity',
+  'stack_geometry',
   'recommendations',
 ];
 
@@ -121,7 +130,10 @@ export function calculate(
     wanted.has('tracking') ||
     wanted.has('blur') ||
     wanted.has('field_rotation') ||
-    wanted.has('exposure_sweep');
+    wanted.has('exposure_sweep') ||
+    wanted.has('session') ||
+    wanted.has('sensitivity') ||
+    wanted.has('stack_geometry');
   if (needStatic) {
     const geometry = computeStaticGeometry(doc, ctx);
     derived = geometry.derived;
@@ -152,7 +164,10 @@ export function calculate(
     wanted.has('mount_kinematics') ||
     wanted.has('field_rotation') ||
     wanted.has('blur') ||
-    wanted.has('exposure_sweep');
+    wanted.has('exposure_sweep') ||
+    wanted.has('session') ||
+    wanted.has('sensitivity') ||
+    wanted.has('stack_geometry');
   if (needKinematics) {
     kinematics = deriveKinematics(doc);
     if (wanted.has('scenario_geometry')) {
@@ -200,13 +215,48 @@ export function calculate(
     calculatedGroups.push('blur');
   }
 
-  // 9. Exposure sweep (preliminary fixed-session performance across candidates).
-  if (wanted.has('exposure_sweep') && derived != null && kinematics != null) {
-    results.exposure_sweep = computeExposureSweep(doc, derived, kinematics, ctx);
+  // The read-noise time constant (from the SNR context) drives both the exposure
+  // sweep score and sensitivity, so compute it once when either is requested.
+  const snrContext =
+    (wanted.has('exposure_sweep') || wanted.has('sensitivity')) && derived != null
+      ? deriveSnrContext(doc, derived, kinematics)
+      : null;
+
+  // 9. Exposure sweep (relative fixed-session stacked-SNR across candidates).
+  if (wanted.has('exposure_sweep') && derived != null && kinematics != null && snrContext != null) {
+    results.exposure_sweep = computeExposureSweep(
+      doc,
+      derived,
+      kinematics,
+      snrContext.readNoiseTimeConstantS,
+      ctx,
+    );
     calculatedGroups.push('exposure_sweep');
   }
 
-  // 10. Recommendations (read the computed result groups; v0.9 §25 R2-031).
+  // 10. Session simulation + sensitivity + stack geometry (R3, §23/§27–29).
+  if ((wanted.has('session') || wanted.has('sensitivity')) && derived != null) {
+    const session = computeSession(doc, derived, kinematics, ctx);
+    if (wanted.has('session')) {
+      results.session = session.results;
+      calculatedGroups.push('session');
+    }
+    if (wanted.has('sensitivity') && snrContext != null) {
+      results.sensitivity = computeSensitivity(
+        doc,
+        snrContext,
+        session.derived.framesAccepted,
+        ctx,
+      );
+      calculatedGroups.push('sensitivity');
+    }
+  }
+  if (wanted.has('stack_geometry') && derived != null) {
+    results.stack_geometry = computeStackGeometry(doc, derived, kinematics, trackingDerived, ctx);
+    calculatedGroups.push('stack_geometry');
+  }
+
+  // 11. Recommendations (read the computed result groups; v0.9 §25 R2-031).
   let recommendations: CalculationResponse['recommendations'];
   if (wanted.has('recommendations')) {
     recommendations = generateRecommendations(doc, results);

@@ -360,3 +360,35 @@ export const R2_FIXTURES = [
   F06_DOCUMENT,
   F07_DOCUMENT,
 ] as const;
+
+/** F08 — sensitivity / frame-yield (R3): full noise + session data so the
+ * relative stacked-SNR and effective integration are real, not preliminary. */
+export const F08_DOCUMENT: DesignDocument = (() => {
+  const d = r2Base('design_f08_sensitivity', 'F08 Sensitivity');
+  d.scenario.conditions = {
+    seeing_fwhm_arcsec: 2.5,
+    sky_brightness_mag_arcsec2: 19.5,
+    extinction_mag_per_airmass: 0.15,
+  };
+  d.scenario.session = { start_time_utc: null, duration_s: 3600 };
+  d.optics.aperture_mm = 60;
+  d.optics.native_focal_length_mm = 300;
+  d.optics.optical_transmission_fraction = 0.9;
+  d.camera.noise = {
+    effective_quantum_efficiency_fraction: 0.8,
+    read_noise_e_rms: 2,
+    dark_current_e_per_px_s: 0.02,
+  };
+  d.camera.readout = { readout_time_s: 1, transfer_time_s: 0 };
+  d.tracking = {
+    enabled: true,
+    error_model: { drift_rate: { value_arcsec_per_min: 1, direction: 'right_ascension' } },
+    quality_thresholds: { maximum_motion_pixels: 1 },
+  };
+  d.capture = {
+    exposure_s: 20,
+    stack_efficiency_fraction: 0.9,
+    exposure_sweep: { enabled: true, minimum_exposure_s: 1, maximum_exposure_s: 60 },
+  };
+  return d;
+})();

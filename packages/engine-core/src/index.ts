@@ -12,5 +12,6 @@ export * from './formulas.js';
 export * from './sampling.js';
 export * from './groups.js';
 export * from './groups-r2.js';
+export * from './groups-r3.js';
 export * from './recommendations.js';
 export * from './coordinator.js';

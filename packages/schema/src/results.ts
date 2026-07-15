@@ -218,8 +218,20 @@ export interface FieldRotationResults {
 
 // Groups below gain field-level detail as their calculations land. They are
 // keyed generically so partial responses and the results map stay typed.
+// --- sensitivity (R3, v0.8 §23) ------------------------------------------
+
 export interface SensitivityResults {
-  [key: string]: ResultValue | ResultValue[] | undefined;
+  effective_area_mm2: ResultValue;
+  effective_qe: ResultValue;
+  pixel_solid_angle_arcsec2: ResultValue;
+  atmospheric_throughput: ResultValue;
+  /** Relative point-source throughput factor (unnormalised; ratios compare designs). */
+  point_source_throughput: ResultValue;
+  extended_per_pixel_throughput: ResultValue;
+  /** Relative fixed-session stacked-SNR score at the current exposure. */
+  relative_stack_score: ResultValue;
+  /** True only when brightness data supports absolute SNR (v0.4 §24). */
+  photometric_available: ResultValue<boolean>;
 }
 
 // --- exposure sweep (R2, v0.8 §23) ---------------------------------------
@@ -248,11 +260,25 @@ export interface ExposureSweepResults {
   plateau: ResultValue<boolean>;
   boundary_optimum: ResultValue<boolean>;
 }
+// --- session simulation (R3, v0.8 §23) -----------------------------------
+
 export interface SessionResults {
-  [key: string]: ResultValue | ResultValue[] | undefined;
+  frames_attempted: ResultValue;
+  frames_accepted: ResultValue;
+  acceptance_fraction: ResultValue;
+  effective_integration_s: ResultValue;
+  duty_cycle: ResultValue;
+  exposure_time_s: ResultValue;
+  overhead_time_s: ResultValue;
+  environmental_acceptance: ResultValue;
 }
+
+// --- stack geometry (R3, v0.8 §23) ---------------------------------------
+
 export interface StackGeometryResults {
-  [key: string]: ResultValue | ResultValue[] | undefined;
+  common_coverage_fraction: ResultValue;
+  crop_fraction: ResultValue;
+  target_retention_fraction: ResultValue;
 }
 
 export const CONSTRAINT_STATUSES = ['pass', 'marginal', 'fail', 'unknown'] as const;
