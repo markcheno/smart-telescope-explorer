@@ -335,6 +335,139 @@ button:disabled {
   margin-bottom: 6px;
 }
 
+/* Report */
+.report {
+  max-width: 760px;
+}
+.report__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.quantity--inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.report__cover {
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+.report__title {
+  margin: 0 0 8px;
+}
+.report__cover-grid,
+.report__metrics,
+.report__rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 24px;
+  margin: 0;
+}
+.report__cover-grid div,
+.report__metrics div,
+.report__rows div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed var(--border);
+  padding: 3px 0;
+  font-size: 13px;
+}
+.report__cover-grid dt,
+.report__metrics dt,
+.report__rows dt {
+  color: var(--muted);
+}
+.report__cover-grid dd,
+.report__metrics dd,
+.report__rows dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.report__section {
+  margin-top: 18px;
+}
+.report__section h2,
+.report__summary h2 {
+  font-size: 15px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.report__good {
+  color: var(--good);
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.report__bad {
+  color: var(--bad);
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.report__unknown {
+  color: var(--muted);
+}
+.report__note {
+  color: var(--muted);
+  font-size: 12px;
+}
+.report__conf {
+  margin-left: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.report__conf--moderate {
+  color: var(--moderate);
+}
+.report__conf--low {
+  color: var(--low);
+}
+.report__assumptions {
+  list-style: none;
+  padding: 0;
+}
+.report__assumptions li {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 13px;
+}
+.report__versions {
+  margin-top: 20px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media print {
+  .appbar,
+  .inputs,
+  .rail,
+  .tray,
+  .analysis__tabs,
+  .no-print {
+    display: none !important;
+  }
+  .app,
+  .app__body,
+  .analysis,
+  .analysis__panel {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .report {
+    max-width: none;
+  }
+}
+
 /* Analysis */
 .analysis {
   display: flex;

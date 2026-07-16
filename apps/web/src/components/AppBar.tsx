@@ -9,6 +9,7 @@
 import { useRef } from 'react';
 import { F01_DOCUMENT } from '@ste/test-fixtures';
 import { downloadJson, parseImportedDesign } from '../state/persistence.js';
+import { buildShareUrl, hasExactCoordinates } from '../state/share.js';
 import { useDesign } from '../state/store.js';
 
 export function AppBar(): JSX.Element {
@@ -22,6 +23,26 @@ export function AppBar(): JSX.Element {
       replaceDesign(result.design);
     } else {
       window.alert(`Import failed: ${result.error ?? 'unknown error'}`);
+    }
+  };
+
+  const onShare = async (): Promise<void> => {
+    // Warn before sharing exact coordinates; Cancel rounds them (spec §43).
+    const exact =
+      !hasExactCoordinates(design) ||
+      window.confirm(
+        'Share exact target coordinates?\n\nOK = share exact position. Cancel = round coordinates for privacy.',
+      );
+    const url = buildShareUrl(design, { privacy: exact ? 'exact' : 'rounded' });
+    if (url == null) {
+      window.alert('This design is too large to share as a link. Use Export to share a file.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      window.alert('Share link copied to clipboard.');
+    } catch {
+      window.prompt('Copy this share link:', url);
     }
   };
 
@@ -46,6 +67,9 @@ export function AppBar(): JSX.Element {
         </button>
         <button type="button" onClick={() => downloadJson(design)}>
           Export
+        </button>
+        <button type="button" onClick={() => void onShare()}>
+          Share
         </button>
         <button
           type="button"

@@ -25,6 +25,7 @@ import { BlurView } from './analysis/BlurView.js';
 import { FieldRotationView } from './analysis/FieldRotationView.js';
 import { ExposureView } from './analysis/ExposureView.js';
 import { SensitivityView } from './analysis/SensitivityView.js';
+import { ReportView } from './analysis/ReportView.js';
 
 type AnalysisTab =
   | 'overview'
@@ -34,7 +35,8 @@ type AnalysisTab =
   | 'blur'
   | 'rotation'
   | 'exposure'
-  | 'sensitivity';
+  | 'sensitivity'
+  | 'report';
 
 const TABS: { id: AnalysisTab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -45,6 +47,7 @@ const TABS: { id: AnalysisTab; label: string }[] = [
   { id: 'rotation', label: 'Rotation' },
   { id: 'exposure', label: 'Exposure' },
   { id: 'sensitivity', label: 'Sensitivity' },
+  { id: 'report', label: 'Report' },
 ];
 
 export function App(): JSX.Element {
@@ -88,6 +91,7 @@ export function App(): JSX.Element {
             {tab === 'rotation' && <FieldRotationView />}
             {tab === 'exposure' && <ExposureView />}
             {tab === 'sensitivity' && <SensitivityView />}
+            {tab === 'report' && <ReportView />}
           </div>
         </main>
 

@@ -31,6 +31,7 @@ import type {
   ScenarioInput,
 } from '@ste/schema';
 import { loadCurrentDesign, saveCurrentDesign } from './persistence.js';
+import { readSharedFromLocation } from './share.js';
 
 type SaveState = 'saved' | 'unsaved';
 
@@ -72,6 +73,14 @@ function reducer(state: StoreState, action: Action): StoreState {
 
 /** The default starting design for R1 (the canonical 30 mm example, v0.9 §14). */
 function seedDesign(): DesignDocument {
+  // A shared link opens as a copy and takes precedence over local state.
+  if (typeof window !== 'undefined') {
+    const shared = readSharedFromLocation(window.location.hash);
+    if (shared != null) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      return shared.design;
+    }
+  }
   return loadCurrentDesign() ?? structuredClone(F01_DOCUMENT);
 }
 
