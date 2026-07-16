@@ -16,6 +16,8 @@ import { OpticsSection } from './features/OpticsSection.js';
 import { CameraSection } from './features/CameraSection.js';
 import { MountSection } from './features/MountSection.js';
 import { TrackingSection } from './features/TrackingSection.js';
+import { FocusSection } from './features/FocusSection.js';
+import { PowerSection } from './features/PowerSection.js';
 import { ConstraintsSection } from './features/ConstraintsSection.js';
 import { OverviewView } from './analysis/OverviewView.js';
 import { FramingView } from './analysis/FramingView.js';
@@ -65,6 +67,8 @@ export function App(): JSX.Element {
           <CameraSection />
           <MountSection />
           <TrackingSection />
+          <FocusSection />
+          <PowerSection />
           <ConstraintsSection />
         </nav>
 

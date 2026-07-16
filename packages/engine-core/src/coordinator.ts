@@ -33,6 +33,7 @@ import {
   computeStackGeometry,
   deriveSnrContext,
 } from './groups-r3.js';
+import { computeFocus, computePower } from './groups-r4.js';
 import { generateRecommendations } from './recommendations.js';
 import { evaluateConstraints } from './constraints.js';
 import type { Mat2 } from '@ste/units';
@@ -59,6 +60,8 @@ export const SUPPORTED_GROUPS: readonly CalculationGroup[] = [
   'session',
   'sensitivity',
   'stack_geometry',
+  'power',
+  'focus',
   'constraints',
   'recommendations',
 ];
@@ -147,7 +150,8 @@ export function calculate(
     wanted.has('exposure_sweep') ||
     wanted.has('session') ||
     wanted.has('sensitivity') ||
-    wanted.has('stack_geometry');
+    wanted.has('stack_geometry') ||
+    wanted.has('focus');
   if (needStatic) {
     const geometry = computeStaticGeometry(doc, ctx);
     derived = geometry.derived;
@@ -270,7 +274,17 @@ export function calculate(
     calculatedGroups.push('stack_geometry');
   }
 
-  // 11. Constraints (evaluate against the computed result groups; v0.4 §37).
+  // 11. Power + focus (R4 optional subsystems; v0.4 §33, §11).
+  if (wanted.has('power')) {
+    results.power = computePower(doc);
+    calculatedGroups.push('power');
+  }
+  if (wanted.has('focus')) {
+    results.focus = computeFocus(doc, derived);
+    calculatedGroups.push('focus');
+  }
+
+  // 12. Constraints (evaluate against the computed result groups; v0.4 §37).
   if (wanted.has('constraints')) {
     results.constraints = evaluateConstraints(doc, results);
     calculatedGroups.push('constraints');

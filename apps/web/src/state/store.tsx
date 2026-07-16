@@ -105,6 +105,8 @@ function buildRequest(design: DesignDocument): CalculationRequest {
       'session',
       'sensitivity',
       'stack_geometry',
+      'power',
+      'focus',
       'constraints',
       'recommendations',
     ],

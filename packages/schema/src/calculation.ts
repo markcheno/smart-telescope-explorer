@@ -31,6 +31,8 @@ export const CALCULATION_GROUPS = [
   'exposure_sweep',
   'session',
   'stack_geometry',
+  'power',
+  'focus',
   'constraints',
   'recommendations',
   'all',

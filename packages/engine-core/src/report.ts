@@ -187,6 +187,33 @@ function sections(doc: DesignDocument, groups: Groups, options?: ReportOptions):
     ],
   });
 
+  if (doc.power != null && (doc.power.loads?.length ?? 0) > 0) {
+    out.push({
+      id: 'power',
+      title: 'Power',
+      rows: [
+        row('Average power', rv(groups, 'power', 'average_power_w')),
+        row('Usable energy', rv(groups, 'power', 'usable_energy_wh')),
+        row('Runtime', rv(groups, 'power', 'runtime_hr')),
+        row('Covers session', rv(groups, 'power', 'session_covered')),
+      ],
+    });
+  }
+
+  if (doc.focus != null) {
+    out.push({
+      id: 'focus',
+      title: 'Focus',
+      rows: [
+        row('Step resolution', rv(groups, 'focus', 'step_resolution_um')),
+        row('Critical focus zone (half)', rv(groups, 'focus', 'critical_focus_zone_half_um')),
+        row('Recommended step', rv(groups, 'focus', 'recommended_repeatable_um')),
+        row('Resolution adequate', rv(groups, 'focus', 'resolution_adequate')),
+        row('Defocus FWHM (temp drift)', rv(groups, 'focus', 'defocus_fwhm_arcsec')),
+      ],
+    });
+  }
+
   const constraints = groups.constraints ?? [];
   if (constraints.length > 0) {
     out.push({

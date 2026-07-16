@@ -142,12 +142,18 @@ importers:
       '@ste/exposure':
         specifier: workspace:*
         version: link:../exposure
+      '@ste/focus':
+        specifier: workspace:*
+        version: link:../focus
       '@ste/kinematics':
         specifier: workspace:*
         version: link:../kinematics
       '@ste/optics':
         specifier: workspace:*
         version: link:../optics
+      '@ste/power':
+        specifier: workspace:*
+        version: link:../power
       '@ste/schema':
         specifier: workspace:*
         version: link:../schema
@@ -176,6 +182,8 @@ importers:
 
   packages/exposure: {}
 
+  packages/focus: {}
+
   packages/kinematics:
     dependencies:
       '@ste/astronomy':
@@ -193,6 +201,8 @@ importers:
       '@ste/units':
         specifier: workspace:*
         version: link:../units
+
+  packages/power: {}
 
   packages/schema: {}
 

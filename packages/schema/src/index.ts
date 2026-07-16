@@ -34,5 +34,7 @@ export * from './preview.js';
 export * from './calculation.js';
 export * from './comparison.js';
 export * from './report.js';
+export * from './power.js';
+export * from './focus.js';
 export * from './commands.js';
 export * from './worker.js';

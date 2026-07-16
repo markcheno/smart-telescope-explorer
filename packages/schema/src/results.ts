@@ -281,6 +281,31 @@ export interface StackGeometryResults {
   target_retention_fraction: ResultValue;
 }
 
+// --- power (R4, v0.4 §33) ------------------------------------------------
+
+export interface PowerResults {
+  average_power_w: ResultValue;
+  usable_energy_wh: ResultValue;
+  runtime_s: ResultValue;
+  runtime_hr: ResultValue;
+  reserve_fraction: ResultValue;
+  /** True when runtime covers the session duration plus the reserve. */
+  session_covered: ResultValue<boolean>;
+}
+
+// --- focus (R4, v0.4 §11) ------------------------------------------------
+
+export interface FocusResults {
+  step_resolution_um: ResultValue;
+  critical_focus_zone_half_um: ResultValue;
+  recommended_repeatable_um: ResultValue;
+  /** True when the finest achievable move stays within the recommended step. */
+  resolution_adequate: ResultValue<boolean>;
+  temperature_drift_um: ResultValue;
+  defocus_fwhm_arcsec: ResultValue;
+  autofocus_overhead_fraction: ResultValue;
+}
+
 export const CONSTRAINT_STATUSES = ['pass', 'marginal', 'fail', 'unknown'] as const;
 export type ConstraintStatus = (typeof CONSTRAINT_STATUSES)[number];
 
@@ -311,6 +336,8 @@ export interface ResultGroups {
   exposure_sweep?: ExposureSweepResults;
   session?: SessionResults;
   stack_geometry?: StackGeometryResults;
+  power?: PowerResults;
+  focus?: FocusResults;
   constraints?: ConstraintEvaluation[];
 }
 
